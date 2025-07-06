@@ -45,9 +45,9 @@ build/
 target/
 
 # 文档
-README.md
-LICENSE
-*.md
+#README.md
+#LICENSE
+#*.md
 
 # 测试相关
 .hypothesis/
