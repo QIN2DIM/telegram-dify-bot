@@ -20,6 +20,9 @@ class Settings(BaseSettings):
         default="", description="通过 https://t.me/BotFather 获取机器人的 API_TOKEN"
     )
 
+    DIFY_APP_BASE_URL: str = Field(default="https://api.dify.ai/v1")
+    DIFY_WORKFLOW_API_KEY: SecretStr = Field(default="")
+
     def get_default_application(self) -> Application:
         if proxy_url := getproxies().get("http"):
             print(f"PROXY_URL={proxy_url}")

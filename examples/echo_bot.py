@@ -19,6 +19,7 @@ import logging
 
 from telegram import ForceReply, Update
 from telegram.ext import CommandHandler, ContextTypes, MessageHandler, filters
+from pathlib import Path
 
 from settings import settings
 
@@ -30,6 +31,9 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
+
+data_dir = Path(__file__).parent / "data"
+data_dir.mkdir(parents=True, exist_ok=True)
 
 
 # Define a few command handlers. These usually take the two arguments update and
@@ -50,12 +54,15 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Echo the user message."""
     print(update.effective_user)
-    print("Chat".center(30, "-"))
-    print(json.dumps(update.effective_chat.to_dict(), indent=2, ensure_ascii=False))
+
     print("Message".center(30, "-"))
-    print(json.dumps(update.effective_message.to_dict(), indent=2, ensure_ascii=False))
+
+    preview_text = json.dumps(update.effective_message.to_dict(), indent=2, ensure_ascii=False)
+    data_dir.joinpath("message_sample.json").write_text(preview_text, encoding="utf8")
+
     print("=" * 50)
 
+    # AttributeError: 'NoneType' object has no attribute 'reply_text'
     await update.message.reply_text(update.message.text)
 
 
