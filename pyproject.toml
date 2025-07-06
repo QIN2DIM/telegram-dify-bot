@@ -9,5 +9,11 @@ dependencies = [
     "loguru>=0.7.3",
     "openai>=1.93.0",
     "pydantic-settings>=2.10.1",
-    "python-telegram-bot>=22.2",
+    "python-telegram-bot[all]>=22.2",
+]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "ruff>=0.12.2",
 ]
