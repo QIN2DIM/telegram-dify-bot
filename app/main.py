@@ -14,12 +14,10 @@ Basic Echobot example, repeats messages.
 Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
-
 import logging
 
 from telegram import ForceReply, Update
 from telegram.ext import (
-    Application,
     CommandHandler,
     ContextTypes,
     MessageHandler,
@@ -56,24 +54,25 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Echo the user message."""
+    print(update.effective_user)
+    print(update.effective_chat)
+    print(update.effective_sender)
+    print(update.effective_message)
+
     await update.message.reply_text(update.message.text)
 
 
 def main() -> None:
     """Start the bot."""
     # Create the Application and pass it your bot's token.
-    application = (
-        Application.builder()
-        .token(settings.TELEGRAM_BOT_API_TOKEN.get_secret_value())
-        .build()
-    )
+    application = settings.get_default_application()
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
 
     # on non command i.e message - echo the message on Telegram
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+    application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, echo))
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling(allowed_updates=Update.ALL_TYPES)

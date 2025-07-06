@@ -12,6 +12,12 @@ dependencies = [
     "python-telegram-bot[all]>=22.2",
 ]
 
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312", "py313"]
+skip-string-normalization = true
+exclude = "_archive|.venv|docs/.*\\.ipynb"
+
 [dependency-groups]
 dev = [
     "black>=25.1.0",
