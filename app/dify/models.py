@@ -33,7 +33,6 @@ class WorkflowFileInputBody(BaseModel):
 
 class WorkflowInputs(BaseModel):
     message_context: str = Field(description="翻译上下文")
-    user_language_code: str = Field(description="客户端语言代码")
     output_language: str | None = Field(default="")
     files: List[WorkflowFileInputBody] | None = Field(default_factory=list)
 

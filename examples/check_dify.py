@@ -16,7 +16,7 @@ async def main():
     dify_client = DifyWorkflowClient()
 
     user = "abc-123"
-    inputs = WorkflowInputs(message_context="Hello, my friend!", user_language_code="zh-Hans")
+    inputs = WorkflowInputs(message_context="Hello, my friend!")
     # with_files = [Path(__file__).parent.joinpath("sticker.webp")]
     with_files = None
 
