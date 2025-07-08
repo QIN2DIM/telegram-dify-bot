@@ -14,6 +14,8 @@ dotenv.load_dotenv()
 
 PROJECT_DIR = Path(__file__).parent
 CACHE_DIR = PROJECT_DIR.joinpath(".cache")
+LOG_DIR = PROJECT_DIR.joinpath("logs")
+DATA_DIR = PROJECT_DIR.joinpath("data")
 
 
 class Settings(BaseSettings):

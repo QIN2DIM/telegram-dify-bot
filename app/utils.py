@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import os
 import sys
+import random
+from typing import List
 from zoneinfo import ZoneInfo
 
 from loguru import logger
@@ -77,3 +79,42 @@ def init_log(**sink_channel):
             filter=timezone_filter,
         )
     return logger
+
+
+hello_replies: List[str] = [
+    "Hey! 👋 Welcome—I'm here to help. 😊\nWhat can I do for you today? Whether it’s a question, an idea, or you just want to chat, I’m all ears! 💬❤️‍🔥",
+    "Hi there!",
+    "Hey! 👋",
+    "Hi! 😊",
+    "What's up?",
+    "Good to see you!",
+    "Hey there!",
+    "Howdy!",
+    "Hi! 👀",
+    "Hello hello!",
+    "Yo! (^_^)",
+    "你好！",
+    "嗨！✨",
+    "Hello! 🌟",
+    "Hey hey!",
+    "Hi friend!",
+    "Greetings!",
+    "Hiya!",
+    "Well hello!",
+    "Hey you! 😄",
+    "Hi hi!",
+    "Hello world!",
+    "嗨呀！",
+    "Sup!",
+    "Oh hi!",
+    "Hello beautiful!",
+    "Hey buddy!",
+    "Hi stranger!",
+    "Hello sunshine! ☀️",
+    "Hellow~ 🎵",
+    "Hey! Nice to meet you! 🤝",
+]
+
+
+def get_hello_reply():
+    return random.choice(hello_replies)

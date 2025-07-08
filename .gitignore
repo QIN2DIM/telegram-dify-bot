@@ -209,4 +209,5 @@ __marimo__/
 !.idea/icon.svg
 
 examples/tmp
-examples/data
+app/data
+app/data

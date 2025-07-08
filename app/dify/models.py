@@ -62,14 +62,16 @@ class WorkflowLogsQuery(BaseModel):
 
 
 class WorkflowRunOutputs(BaseModel):
-    pass
+    quote: str | None = Field(default="", description="在自动模式下，自动翻译的原始文本段落")
+    error: str | None = Field(default="", description="异常信息")
+    translation: str = Field(description="翻译结果")
 
 
 class WorkflowRunData(BaseModel):
     id: str
     workflow_id: str
     status: str
-    outputs: dict = Field(description="工作流返回的 dict data")
+    outputs: WorkflowRunOutputs = Field(description="工作流返回的 dict data")
     error: str | None = Field(default="")
 
 

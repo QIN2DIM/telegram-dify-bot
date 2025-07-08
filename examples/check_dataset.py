@@ -7,15 +7,15 @@
 """
 import json
 from pathlib import Path
+from settings import DATA_DIR
 
-dataset_dir = Path(__file__).parent.joinpath("data")
 
 chat_types = set()
 chat_enum = {}
-for message_path in dataset_dir.rglob("*.json"):
+for message_path in DATA_DIR.rglob("*.json"):
     data = json.loads(message_path.read_text(encoding="utf-8"))
-    chat = data["chat"]
-    chat_enum[chat["id"]] = chat
+    sender_chat = data.get("from", {})
+    chat_enum[sender_chat.get("id", "")] = sender_chat
 
 print(chat_types)
 print(json.dumps(chat_enum, indent=2, ensure_ascii=False))
