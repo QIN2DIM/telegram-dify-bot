@@ -9,7 +9,7 @@ import asyncio
 import json
 
 from dify import DifyWorkflowClient
-from dify.models import WorkflowRunPayload, WorkflowInputs
+from models import WorkflowRunPayload, WorkflowInputs
 
 
 async def main():

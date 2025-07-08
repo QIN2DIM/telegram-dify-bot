@@ -12,7 +12,7 @@ from typing import List
 from httpx import AsyncClient
 from loguru import logger
 
-from dify.models import (
+from models import (
     WorkflowRunPayload,
     FilesUploadResponse,
     WorkflowFileInputBody,

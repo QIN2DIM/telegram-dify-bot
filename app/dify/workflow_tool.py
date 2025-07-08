@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import List
 
 from dify.dify_client import DifyWorkflowClient
-from dify.models import WorkflowRunPayload, WorkflowInputs, WorkflowRunResponse
+from models import WorkflowRunPayload, WorkflowInputs, WorkflowRunResponse
 
 
 async def direct_translation_tool(
