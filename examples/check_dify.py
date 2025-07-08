@@ -6,18 +6,26 @@
 @Desc    :
 """
 import asyncio
+import json
 
 from dify import DifyWorkflowClient
-import httpx
-from httpx_sse import connect_sse
+from dify.models import WorkflowRunPayload, WorkflowInputs
 
 
 async def main():
-    client = DifyWorkflowClient()
-    with httpx.Client() as client:
-        with connect_sse(client, "GET", "http://localhost:8000/sse") as event_source:
-            for sse in event_source.iter_sse():
-                print(sse.event, sse.data, sse.id, sse.retry)
+    dify_client = DifyWorkflowClient()
+
+    user = "abc-123"
+    inputs = WorkflowInputs(message_context="Hello, my friend!", user_language_code="zh-Hans")
+    # with_files = [Path(__file__).parent.joinpath("sticker.webp")]
+    with_files = None
+
+    result = await dify_client.run(
+        payload=WorkflowRunPayload(inputs=inputs, user=user, response_mode="blocking"),
+        with_files=with_files,
+    )
+    if result:
+        print(json.dumps(result.model_dump(mode="json"), indent=2, ensure_ascii=False))
 
 
 if __name__ == '__main__':

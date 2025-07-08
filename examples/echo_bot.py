@@ -16,10 +16,10 @@ bot.
 """
 import json
 import logging
+from pathlib import Path
 
 from telegram import ForceReply, Update
 from telegram.ext import CommandHandler, ContextTypes, MessageHandler, filters
-from pathlib import Path
 
 from settings import settings
 
