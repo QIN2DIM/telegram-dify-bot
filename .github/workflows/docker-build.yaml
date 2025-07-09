@@ -13,8 +13,7 @@ on:
       - main
       - dev
       - 0-1-0
-    tags:
-      - 'v*'
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -47,12 +46,17 @@ jobs:
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
-          type=ref,event=branch
-          type=ref,event=pr
+          # 为分支推送生成标签，并自动清理非法字符 (e.g., feature/new -> feature-new)
+          type=ref,event=branch,sanitize=true
+          # 为PR生成标签 (e.g., pr-123)
+          type=ref,event=pr,sanitize=true
+          # 为Git标签生成SemVer标签 (e.g., v1.2.3 -> 1.2.3, 1.2, 1)
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
+          # 为每次构建生成一个基于commit SHA的短标签 (e.g., f18c573)
           type=sha,format=short
+          # 仅当事件发生在默认分支 (main) 时，才添加 "latest" 标签
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push Docker image
