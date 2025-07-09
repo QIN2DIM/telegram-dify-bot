@@ -109,13 +109,16 @@ def _is_mention_bot(message: Message, bot_username: str) -> bool:
     Returns:
         bool: 如果提及了机器人则返回True
     """
-    if not message.entities or not message.text:
-        return False
-
+    # 提取@后的用户名
     for entity in message.entities:
         if entity.type == "mention":
-            # 提取@后的用户名
             mentioned_username = message.text[entity.offset + 1 : entity.offset + entity.length]
+            if mentioned_username == bot_username:
+                return True
+
+    for entity in message.caption_entities:
+        if entity.type == "mention":
+            mentioned_username = message.caption[entity.offset + 1 : entity.offset + entity.length]
             if mentioned_username == bot_username:
                 return True
 
@@ -160,7 +163,8 @@ def _is_available_direct_translation(
             return TaskType.MENTION_WITH_REPLY
 
     # 4. 非自动模式下，没有提及机器人且没有实体则不触发翻译
-    if not is_auto_trigger and not message.entities:
+    if not is_auto_trigger and not message.entities and not message.caption_entities:
+        logger.debug("[IGNORE] 非自动模式下，没有提及机器人且没有实体则不触发翻译")
         return None
 
     # 5. 检查是否直接提及机器人
@@ -171,6 +175,7 @@ def _is_available_direct_translation(
     if is_auto_trigger and (message.text or message.photo or message.caption):
         return TaskType.AUTO
 
+    logger.debug("[IGNORE] unknown type message")
     return None
 
 

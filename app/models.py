@@ -104,13 +104,15 @@ class WorkflowLogsQuery(BaseModel):
 
 
 class AnswerType(str, Enum):
+    FULLTEXT_TRANSLATION = "翻译与文本编辑"
+    GENERAL_QA = "通用问答与指令"
+    WEB_SEARCH = "联网搜索与时事问答"
+
     TABLE_RECOGNITION = "table_recognition"
     TEXT_RECOGNITION_OCR = "text_recognition_ocr"
     GEOLOCATION_IDENTIFICATION = "geolocation_identification"
     IMAGE_TRANSLATION = "image_translation"
-    FULLTEXT_TRANSLATION = "翻译与文本编辑"
-    GENERAL_QA = "通用问答与指令"
-    WEB_SEARCH = "联网搜索与时事问答"
+    GENERAL_QA_MODAL = "general_qa"
 
 
 WORKFLOW_RUN_OUTPUTS_TYPE = Union[str, AnswerType]

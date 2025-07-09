@@ -27,7 +27,7 @@ from prompts import (
     MESSAGE_FORMAT_TEMPLATE,
     USER_PREFERENCES_TPL,
 )
-from utils import get_hello_reply
+from utils import get_hello_reply, get_image_mention_prompt
 
 
 async def _format_message(message: Message) -> str:
@@ -129,15 +129,25 @@ async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     task_type = _is_available_direct_translation(
         chat, trigger_message, context.bot, is_auto_trigger=is_auto_mode
     )
+    logger.debug(f"{task_type=}")
+
     if not task_type or not isinstance(task_type, TaskType):
         return
 
     if task_type == TaskType.MENTION:
-        # 提及我，但没有输入任何内容且没有图片
-        real_text = (trigger_message.text or "").replace(f"@{context.bot.username}", "")
-        if not real_text.strip() and not trigger_message.photo and not trigger_message.caption:
+        # 检查用户的真实输入内容（排除@机器人的部分）
+        real_text = (trigger_message.text or trigger_message.caption or "").replace(f"@{context.bot.username}", "")
+        
+        # 情况1: 没有图片也没有文本内容 - 返回普通打招呼
+        if not real_text.strip() and not trigger_message.photo:
             await trigger_message.reply_text(get_hello_reply())
             return
+        
+        # 情况2: 仅有图片但没有明确的文本指示 - 返回图片相关的友善提醒
+        if trigger_message.photo and not real_text.strip():
+            await trigger_message.reply_text(get_image_mention_prompt())
+            return
+        
         # MENTION: 对用户消息添加表情回应表示已收到
         try:
             await context.bot.set_message_reaction(
@@ -169,8 +179,6 @@ async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             )
         except Exception as e:
             logger.debug(f"Failed to set reaction: {e}")
-
-    logger.debug(f"{task_type=}")
 
     # 准备用户信息
     from_user_fmt = "Anonymous"
