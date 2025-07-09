@@ -15,6 +15,7 @@ Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
 import json
+from contextlib import suppress
 
 from loguru import logger
 from telegram import Update
@@ -22,6 +23,7 @@ from telegram.ext import CommandHandler, MessageHandler, filters
 
 from mybot import cli
 from mybot import handlers
+from mybot.common import _cleanup_old_photos
 from settings import settings, LOG_DIR
 from utils import init_log
 
@@ -38,6 +40,10 @@ def main() -> None:
 
     s = json.dumps(sp, indent=2, ensure_ascii=False)
     logger.success(f"Loading settings: {s}")
+
+    # 定期清理旧的下载图片（每次重启时都尝试清理）
+    with suppress(Exception):
+        _cleanup_old_photos(max_age_hours=24)
 
     # Create the Application and pass it your bot's token.
     application = settings.get_default_application()

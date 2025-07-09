@@ -174,7 +174,7 @@ def _is_available_direct_translation(
     return None
 
 
-async def _cleanup_old_photos(max_age_hours: int = 24) -> None:
+def _cleanup_old_photos(max_age_hours: int = 24) -> None:
     """
     清理超过指定时间的下载图片文件
 

@@ -16,18 +16,18 @@ from dify.workflow_tool import direct_translation_tool
 from models import TaskType
 from mybot.cli import auto_translation_enabled_chats
 from mybot.common import (
-    _cleanup_old_photos,
     storage_messages_dataset,
     _is_available_direct_translation,
     _download_photos_from_message,
 )
-from utils import get_hello_reply
 from prompts import (
     MENTION_PROMPT_TEMPLATE,
     MENTION_WITH_REPLY_PROMPT_TEMPLATE,
     REPLY_PROMPT_TEMPLATE,
     MESSAGE_FORMAT_TEMPLATE,
+    USER_PREFERENCES_TPL,
 )
+from utils import get_hello_reply
 
 
 async def _format_message(message: Message) -> str:
@@ -81,12 +81,17 @@ async def _get_reply_mode_context(
 
     返回格式化后的历史消息字符串和用户偏好字符串
     """
-    # TODO: 从存储的消息数据集中获取历史消息和用户偏好
-    logger.info(f"Attempting to get reply mode context for user {user_id} in chat {chat.id}")
+    logger.info(f"Getting reply mode context for user {user_id} in chat {chat.id}")
 
-    # 临时返回空字符串
-    # 在实际实现中，应该从数据库查询相关消息
+    # 格式化被引用的机器人消息作为历史消息
     history_messages = ""
+    if bot_message:
+        # 使用现有的格式化函数来格式化机器人消息
+        formatted_bot_message = await _format_message(bot_message)
+        history_messages = formatted_bot_message
+
+    # 暂时返回空的用户偏好，因为没有数据库功能
+    # 在实际实现中，应该从数据库查询用户与机器人的历史交互记录
     user_preferences = ""
 
     return history_messages, user_preferences
@@ -113,10 +118,6 @@ async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     trigger_message = update.effective_message
 
     # ==================== Section 1: LLM触发前交互 ====================
-
-    # 定期清理旧的下载图片（每次处理时都尝试清理）
-    with suppress(Exception):
-        await _cleanup_old_photos(max_age_hours=24)
 
     # todo: remove
     with suppress(Exception):
@@ -207,6 +208,7 @@ async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     # 构建消息上下文
     message_text = trigger_message.text or trigger_message.caption or ""
+    message_context = message_text or "请分析这张图片"
 
     # 根据不同的 task_type 构建不同的上下文
     if task_type == TaskType.MENTION:
@@ -223,8 +225,6 @@ async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             message_context = MENTION_PROMPT_TEMPLATE.format(
                 user_query=user_query, history_messages=history_messages
             )
-        else:
-            message_context = message_text or "请分析这张图片"
 
     elif task_type == TaskType.MENTION_WITH_REPLY and trigger_message.reply_to_message:
         reply_text = (
@@ -235,8 +235,6 @@ async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             message_context = MENTION_WITH_REPLY_PROMPT_TEMPLATE.format(
                 message_text=message_text, reply_text=reply_text
             )
-        else:
-            message_context = message_text or "请分析这张图片"
 
     elif task_type == TaskType.REPLAY:
         # 获取回复模式的上下文
@@ -253,20 +251,18 @@ async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             user_query = message_text
 
             # 使用 REPLY 模板构建完整上下文
-            if history_messages or user_preferences:
+            if history_messages:
                 message_context = REPLY_PROMPT_TEMPLATE.format(
                     user_query=user_query,
                     history_messages=history_messages or "无历史记录",
-                    user_preferences=user_preferences or "无用户偏好记录",
                 )
-            else:
-                message_context = message_text or "请分析这张图片"
-        else:
-            message_context = message_text or "请分析这张图片"
+                # Add 用户偏好记录
+                if user_preferences:
+                    message_context += USER_PREFERENCES_TPL.format(
+                        user_preferences=user_preferences
+                    )
 
-    else:  # AUTO 模式
-        message_context = message_text or "请分析这张图片"
-
+    print(message_context)
     logger.debug(f"Built message context for {task_type}: {len(message_context)} chars")
 
     # 调用 LLM 进行处理
