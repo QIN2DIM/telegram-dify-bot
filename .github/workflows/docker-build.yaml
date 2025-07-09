@@ -1,21 +1,13 @@
-name: Docker Build and Push
+name: Docker Build and Release
 
+# 触发器：仅当一个新的 Release 被发布时运行
 on:
-  push:
-    branches:
-      - main
-      - dev
-      - 0-1-0
-    tags:
-      - 'v*'
-  pull_request:
-    branches:
-      - main
-      - dev
-      - 0-1-0
+  release:
+    types: [published]
 
 env:
   REGISTRY: ghcr.io
+  # ${{ github.repository }} 会自动解析为 "owner/repo-name"
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
@@ -23,48 +15,49 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # packages: write 是推送到 GitHub Container Registry (ghcr.io) 所需的权限
       packages: write
 
     steps:
     - name: Checkout repository
+      # 此步骤会检出与发布的 Release 相关联的那个 Git 标签的代码
       uses: actions/checkout@v4
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Log in to Container Registry
-      if: github.event_name != 'pull_request'
+    - name: Log in to GitHub Container Registry
       uses: docker/login-action@v3
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Extract metadata
+    - name: Extract metadata for Docker
       id: meta
       uses: docker/metadata-action@v5
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
-          # 为分支推送生成标签，并自动清理非法字符 (e.g., feature/new -> feature-new)
-          type=ref,event=branch,sanitize=true
-          # 为PR生成标签 (e.g., pr-123)
-          type=ref,event=pr,sanitize=true
-          # 为Git标签生成SemVer标签 (e.g., v1.2.3 -> 1.2.3, 1.2, 1)
+          # 从 Git 标签中提取 SemVer 版本号 (e.g., v1.2.3 -> 1.2.3, 1.2, 1)
+          # 这是 Release 流程的核心
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
-          # 为每次构建生成一个基于commit SHA的短标签 (e.g., f18c573)
+
+          # 添加一个基于 commit SHA 的短标签，用于精确追踪
           type=sha,format=short
-          # 仅当事件发生在默认分支 (main) 时，才添加 "latest" 标签
-          type=raw,value=latest,enable={{is_default_branch}}
+
+          # 仅当发布的 Release 不是预发布版本 (pre-release) 时，才添加 "latest" 标签
+          type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
         file: ./docker/Dockerfile
-        push: ${{ github.event_name != 'pull_request' }}
+        # 由于此工作流只在 Release 时运行，我们总是希望推送镜像
+        push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
