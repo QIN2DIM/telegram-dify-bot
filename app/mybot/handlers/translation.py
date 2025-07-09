@@ -60,7 +60,7 @@ async def _get_chat_history_for_mention(
     """
     # TODO: 从存储的消息数据集中获取历史消息
     # 可以使用 storage_messages_dataset 存储的数据
-    logger.info(f"Attempting to get chat history for chat {chat_id}, message {trigger_message_id}")
+    logger.debug(f"Attempting to get chat history for chat {chat_id}, message {trigger_message_id}")
 
     # 临时返回空历史记录
     # 在实际实现中，应该从数据库查询历史消息
@@ -81,7 +81,7 @@ async def _get_reply_mode_context(
 
     返回格式化后的历史消息字符串和用户偏好字符串
     """
-    logger.info(f"Getting reply mode context for user {user_id} in chat {chat.id}")
+    logger.debug(f"Getting reply mode context for user {user_id} in chat {chat.id}")
 
     # 格式化被引用的机器人消息作为历史消息
     history_messages = ""
