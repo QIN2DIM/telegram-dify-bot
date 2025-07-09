@@ -119,7 +119,7 @@ WORKFLOW_RUN_OUTPUTS_TYPE = Union[str, AnswerType]
 
 
 class WorkflowRunOutputs(BaseModel):
-    type: AnswerType | None = Field(default=None, description="任务类型")
+    type: WORKFLOW_RUN_OUTPUTS_TYPE | None = Field(default=None, description="任务类型")
     answer: str | None = Field(default=None, description="处理结果")
 
 
