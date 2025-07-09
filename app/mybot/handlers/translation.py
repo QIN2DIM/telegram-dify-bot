@@ -60,7 +60,6 @@ async def _get_chat_history_for_mention(
     """
     # TODO: 从存储的消息数据集中获取历史消息
     # 可以使用 storage_messages_dataset 存储的数据
-    logger.debug(f"Attempting to get chat history for chat {chat_id}, message {trigger_message_id}")
 
     # 临时返回空历史记录
     # 在实际实现中，应该从数据库查询历史消息
@@ -264,7 +263,6 @@ async def _invoke_model(
                     )
 
     print(message_context)
-    logger.debug(f"Built message context for {task_type}: {len(message_context)} chars")
 
     # 调用 LLM 进行处理
     result = await direct_translation_tool(
@@ -284,6 +282,50 @@ async def _invoke_model(
     return result_text
 
 
+async def _send_message(context, chat_id, text, reply_to_message_id=None, log_prefix=""):
+    """
+    发送消息的辅助函数，优雅降级处理 Markdown 格式错误
+
+    Args:
+        context: Telegram context
+        chat_id: 聊天ID
+        text: 消息文本
+        reply_to_message_id: 可选，回复消息ID
+        log_prefix: 日志前缀
+
+    Returns:
+        bool: 发送是否成功
+    """
+    try:
+        # 先尝试 Markdown 格式
+        if reply_to_message_id:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                parse_mode="Markdown",
+                reply_to_message_id=reply_to_message_id,
+            )
+        else:
+            await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
+        # logger.debug(f"{log_prefix} sent with Markdown")
+        return True
+    except Exception as err:
+        logger.debug(f"Failed to send with Markdown: {err}")
+        try:
+            # Markdown 失败，尝试纯文本
+            if reply_to_message_id:
+                await context.bot.send_message(
+                    chat_id=chat_id, text=text, reply_to_message_id=reply_to_message_id
+                )
+            else:
+                await context.bot.send_message(chat_id=chat_id, text=text)
+            logger.debug(f"{log_prefix} sent without parse_mode - {err}")
+            return True
+        except Exception as e2:
+            logger.error(f"Failed to send message: {e2}")
+            return False
+
+
 async def _response_message(
     update: Update, context: ContextTypes.DEFAULT_TYPE, interaction: Interaction, result_text: str
 ):
@@ -298,7 +340,6 @@ async def _response_message(
     Returns:
 
     """
-
     chat = update.effective_chat
     trigger_message = update.effective_message
     task_type = interaction.task_type
@@ -309,12 +350,13 @@ async def _response_message(
         reply_sent = False
 
         # 方案1: 尝试直接回复触发消息
-        try:
-            await trigger_message.reply_text(result_text, parse_mode="Markdown")
-            reply_sent = True
-            logger.debug("Reply sent via direct reply to trigger message")
-        except Exception as e:
-            logger.debug(f"Failed to reply to trigger message: {e}")
+        reply_sent = await _send_message(
+            context,
+            chat.id,
+            result_text,
+            reply_to_message_id=trigger_message.message_id,
+            log_prefix="Direct reply to trigger message",
+        )
 
         # 方案2: 如果方案1失败，尝试mention用户
         if not reply_sent:
@@ -330,27 +372,21 @@ async def _response_message(
                     user_mention = "User"
 
                 final_text = f"{user_mention}\n\n{result_text}"
-                await context.bot.send_message(
-                    chat_id=chat.id, text=final_text, parse_mode="Markdown"
+                reply_sent = await _send_message(
+                    context, chat.id, final_text, log_prefix="Reply via mention"
                 )
-                reply_sent = True
-                logger.debug("Reply sent via mention")
             except Exception as e:
                 logger.error(f"Failed to send message with mention: {e}")
 
         # 方案3: 最后的兜底方案 - 直接发送消息，不mention任何人
         if not reply_sent:
-            try:
-                await context.bot.send_message(
-                    chat_id=chat.id, text=result_text, parse_mode="Markdown"
-                )
-                logger.debug("Reply sent directly without mention")
-            except Exception as e:
-                logger.error(f"Failed to send message: {e}")
+            reply_sent = await _send_message(
+                context, chat.id, result_text, log_prefix="Reply directly"
+            )
 
     elif task_type == TaskType.AUTO:
         # AUTO: 直接发在群里，不打扰任何人
-        await context.bot.send_message(chat_id=chat.id, text=result_text, parse_mode="Markdown")
+        await _send_message(context, chat.id, result_text, log_prefix="Auto reply")
 
 
 async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
