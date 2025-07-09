@@ -5,3 +5,6 @@
 @GitHub  : https://github.com/QIN2DIM
 @Desc    :
 """
+from .task_handler import task_handler
+
+__all__ = ["task_handler"]

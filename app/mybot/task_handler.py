@@ -19,15 +19,16 @@ from mybot.common import (
     storage_messages_dataset,
     _is_available_direct_translation,
     _download_photos_from_message,
+    get_hello_reply,
+    get_image_mention_prompt,
 )
-from prompts import (
+from mybot.prompts import (
     MENTION_PROMPT_TEMPLATE,
     MENTION_WITH_REPLY_PROMPT_TEMPLATE,
     REPLY_PROMPT_TEMPLATE,
     MESSAGE_FORMAT_TEMPLATE,
     USER_PREFERENCES_TPL,
 )
-from utils import get_hello_reply, get_image_mention_prompt
 
 
 async def _format_message(message: Message) -> str:
@@ -390,7 +391,7 @@ async def _response_message(
         await _send_message(context, chat.id, result_text, log_prefix="Auto reply")
 
 
-async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def task_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     处理翻译请求，支持文本和图片
 

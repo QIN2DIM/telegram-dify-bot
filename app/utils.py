@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import os
 import sys
-import random
-from typing import List
 from zoneinfo import ZoneInfo
 
 from loguru import logger
@@ -79,60 +77,3 @@ def init_log(**sink_channel):
             filter=timezone_filter,
         )
     return logger
-
-
-hello_replies: List[str] = [
-    "Hey! 👋 Welcome—I'm here to help. 😊\nWhat can I do for you today? Whether it’s a question, an idea, or you just want to chat, I’m all ears! 💬❤️‍🔥",
-    "Hi there!",
-    "Hey! 👋",
-    "Hi! 😊",
-    "What's up?",
-    "Good to see you!",
-    "Hey there!",
-    "Howdy!",
-    "Hi! 👀",
-    "Hello hello!",
-    "Yo! (^_^)",
-    "你好！",
-    "嗨！✨",
-    "Hello! 🌟",
-    "Hey hey!",
-    "Hi friend!",
-    "Greetings!",
-    "Hiya!",
-    "Well hello!",
-    "Hey you! 😄",
-    "Hi hi!",
-    "Hello world!",
-    "嗨呀！",
-    "Sup!",
-    "Oh hi!",
-    "Hello beautiful!",
-    "Hey buddy!",
-    "Hi stranger!",
-    "Hello sunshine! ☀️",
-    "Hellow~ 🎵",
-    "Hey! Nice to meet you! 🤝",
-]
-
-
-image_mention_prompts: List[str] = [
-    "我看到你发了张图片并提到了我！🖼️ 请告诉我你想要我做什么：\n✨ 翻译图片中的文字？\n🔍 分析图片内容？\n💬 或者其他什么？",
-    "嗨！👋 我看到你的图片了！请告诉我你的具体需求：\n📝 需要翻译图片中的文字吗？\n🤔 还是想了解图片的内容？\n请明确说明你的问题！",
-    "你好！我注意到你发了张图片 📸\n请告诉我你希望我帮你做什么：\n🌐 翻译图片中的文字？\n📋 描述图片内容？\n💡 或者其他什么需求？",
-    "看到你的图片了！🎨 不过我需要知道你的具体需求：\n📖 翻译图片中的文字？\n🔍 分析图片内容？\n💬 请明确告诉我你想要什么帮助！",
-    "嗨！我看到你提到了我并发了张图片 📷\n请告诉我你的需求：\n🈯 翻译图片中的文字？\n📊 分析图片内容？\n✨ 或者其他什么？",
-    "你好！👋 我看到你的图片了！请明确你的需求：\n🔤 需要翻译图片中的文字吗？\n🎯 还是想了解图片的具体内容？\n请告诉我你想要什么帮助！",
-    "Hi there! 我看到你发了张图片！📸\n请告诉我你的具体需求：\n📝 翻译图片中的文字？\n🔍 分析图片内容？\n💬 或者其他什么？",
-    "嗨！我注意到你的图片了 🖼️\n请明确告诉我你想要：\n🌐 翻译图片中的文字？\n📋 描述图片内容？\n💡 或者其他什么帮助？",
-    "你好！看到你提到了我并发了张图片 📷\n请告诉我你的需求：\n🈯 翻译图片中的文字？\n🔍 分析图片内容？\n✨ 请明确说明你的问题！",
-    "Hi! 我看到你的图片了！🎨\n请告诉我你想要什么帮助：\n📖 翻译图片中的文字？\n📊 分析图片内容？\n💬 或者其他什么需求？",
-]
-
-
-def get_hello_reply():
-    return random.choice(hello_replies)
-
-
-def get_image_mention_prompt():
-    return random.choice(image_mention_prompts)
