@@ -13,7 +13,8 @@ on:
       - main
       - dev
       - 0-1-0
-
+    tags:
+      - 'v*'
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
