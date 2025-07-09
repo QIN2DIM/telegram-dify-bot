@@ -6,7 +6,6 @@
 @Desc    :
 """
 import json
-from pathlib import Path
 from settings import DATA_DIR
 
 
