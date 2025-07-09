@@ -1,23 +1,19 @@
-monospace_tpl = """
-👉 {language}
-`{content}`
-"""
-
-
 def main(messages: list[dict]) -> dict:
     segments = []
+
     for message in messages:
         if message.get("type", "") == "quote":
-            if content := message.get("content", ""):
-                if not content.startswith("> "):
-                    segments.append(f"> {content.strip()}\n")
-                else:
-                    segments.append(f"{content.strip()}\n")
+            continue
+            # if content := message.get("content", ""):
+            #     if not content.startswith("> "):
+            #         segments.append(f"> {content.strip()}\n")
+            #     else:
+            #         segments.append(f"{content.strip()}\n")
         elif message.get("type", "") == "translation":
             if content := message.get("content", ""):
-                language_code = message.get("language_code", "")
-                segments.append(monospace_tpl.format(lanuage=language_code, content=content))
-    return {
-        "type": "fulltext_translation",
-        "answer": "".join(segments),
-    }
+                if "\n" not in content:
+                    segments.append(f"`{content}`".strip())
+                else:
+                    segments.append(f"```\n{content}\n```".strip())
+
+    return {"answer": "".join(segments)}

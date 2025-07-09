@@ -74,6 +74,7 @@ class WorkflowFileInputBody(BaseModel):
 
 
 class WorkflowInputs(BaseModel):
+    bot_username: str = Field(description="机器人username，在群聊中区分谁是谁")
     message_context: str = Field(description="翻译上下文")
     files: List[WorkflowFileInputBody] | None = Field(default_factory=list)
 
@@ -107,8 +108,12 @@ class AnswerType(str, Enum):
     TEXT_RECOGNITION_OCR = "text_recognition_ocr"
     GEOLOCATION_IDENTIFICATION = "geolocation_identification"
     IMAGE_TRANSLATION = "image_translation"
-    FULLTEXT_TRANSLATION = "fulltext_translation"
-    GENERAL_QA = "general_qa"
+    FULLTEXT_TRANSLATION = "翻译与文本编辑"
+    GENERAL_QA = "通用问答与指令"
+    WEB_SEARCH = "联网搜索与时事问答"
+
+
+WORKFLOW_RUN_OUTPUTS_TYPE = Union[str, AnswerType]
 
 
 class WorkflowRunOutputs(BaseModel):
