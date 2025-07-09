@@ -110,7 +110,8 @@ async def _pre_interactivity(update: Update, context: ContextTypes.DEFAULT_TYPE)
     task_type = _is_available_direct_translation(
         chat, trigger_message, context.bot, is_auto_trigger=is_auto_mode
     )
-    logger.debug(f"{task_type=}")
+    if task_type:
+        logger.debug(f"{task_type=}")
 
     if not task_type or not isinstance(task_type, TaskType):
         return
