@@ -12,7 +12,7 @@ from loguru import logger
 from telegram import Update, Message
 from telegram.ext import ContextTypes
 
-from dify.workflow_tool import direct_translation_tool
+from dify.workflow_tool import run_blocking_dify_workflow
 from models import TaskType, Interaction
 from mybot.cli import auto_translation_enabled_chats
 from mybot.common import (
@@ -267,7 +267,7 @@ async def _invoke_model(
     print(message_context)
 
     # 调用 LLM 进行处理
-    result = await direct_translation_tool(
+    result = await run_blocking_dify_workflow(
         bot_username=f"{context.bot.username.rstrip('@')}",
         message_context=message_context,
         from_user=from_user_fmt,

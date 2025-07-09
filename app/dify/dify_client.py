@@ -5,19 +5,22 @@
 @GitHub  : https://github.com/QIN2DIM
 @Desc    :
 """
+import json
 import mimetypes
 from pathlib import Path
-from typing import List
+from typing import List, Any, AsyncGenerator
 
 from httpx import AsyncClient
+from httpx_sse import aconnect_sse
 from loguru import logger
+from pydantic import ValidationError
 
-from models import (
+from dify.models import (
     WorkflowRunPayload,
     FilesUploadResponse,
     WorkflowFileInputBody,
     FILE_TYPE,
-    WorkflowRunResponse,
+    WorkflowCompletionResponse,
 )
 from settings import settings
 
@@ -31,25 +34,12 @@ class DifyWorkflowClient:
         headers = {"Authorization": f"Bearer {api_key}"}
         self._client = AsyncClient(base_url=base_url, headers=headers, timeout=900)
 
-    async def run(
+    async def _fmt_payload(
         self,
         payload: WorkflowRunPayload,
         with_files: List[Path] | Path = None,
         _filter_type: FILE_TYPE = "image",
-    ) -> WorkflowRunResponse | None:
-        """
-        执行 workflow
-
-        执行 workflow，没有已发布的 workflow，不可执行。
-
-        Args:
-            payload:
-            with_files:
-            _filter_type: 目前仅允许 Telegram Translation Bot 接受图片翻译载体
-
-        Returns:
-
-        """
+    ):
         _payload_files = []
 
         # 筛选图片上传
@@ -70,13 +60,83 @@ class DifyWorkflowClient:
         if _payload_files:
             payload.inputs.files = _payload_files
 
+    async def run(
+        self,
+        payload: WorkflowRunPayload,
+        with_files: List[Path] | Path = None,
+        _filter_type: FILE_TYPE = "image",
+    ) -> WorkflowCompletionResponse | None:
+        """
+        执行 workflow
+
+        执行 workflow，没有已发布的 workflow，不可执行。
+
+        Args:
+            payload:
+            with_files:
+            _filter_type: 目前仅允许 Telegram Translation Bot 接受图片翻译载体
+
+        Returns:
+
+        """
+        await self._fmt_payload(payload, with_files, _filter_type)
+
         payload_json = payload.dumps_params()
+
         if payload.response_mode == "blocking":
             response = await self._client.post("/workflows/run", json=payload_json)
             response.raise_for_status()
             result = response.json()
-            return WorkflowRunResponse(**result)
+            return WorkflowCompletionResponse(**result)
+        else:
+            async with aconnect_sse(
+                self._client, "POST", "/workflows/run", json=payload_json
+            ) as event_source:
+                async for sse in event_source.aiter_sse():
+                    print(sse.event, sse.data, sse.id, sse.retry)
+            # return WorkflowRunResponse(**result)
         return None
+
+    async def streaming(
+        self,
+        payload: WorkflowRunPayload,
+        with_files: List[Path] | Path = None,
+        _filter_type: FILE_TYPE = "image",
+    ) -> AsyncGenerator[dict, Any]:
+        """
+        以流式方式运行工作流并返回解析后的事件对象。
+
+        Args:
+            payload: 工作流运行的载荷。
+            with_files: (可选) 随请求一起上传的文件路径。
+            _filter_type: (可选) 文件类型过滤器。
+
+        Yields:
+            一个 `ChunkCompletionResponse` 的实例，
+            它可以是 WorkflowStartedEvent, NodeFinishedEvent 等具体事件类型之一。
+        """
+        await self._fmt_payload(payload, with_files, _filter_type)
+
+        payload_json = payload.dumps_params()
+
+        async with aconnect_sse(
+            self._client, "POST", "/workflows/run", json=payload_json
+        ) as event_source:
+            async for sse in event_source.aiter_sse():
+                # 检查 sse.data 是否为空或只是空白字符
+                if not sse.data or not sse.data.strip():
+                    continue
+                try:
+                    yield sse.json()
+                except json.JSONDecodeError:
+                    # 如果某条消息不是有效的 JSON，打印警告并继续
+                    # 有些流可能以非 JSON 的特殊标记（如 "[DONE]"）结束
+                    logger.error(f"Warning: Received non-JSON SSE data: {sse.data}")
+                except ValidationError as e:
+                    # 如果数据结构不符合任何一个模型，打印详细的验证错误
+                    logger.error(
+                        f"Warning: Pydantic validation failed for data: {sse.data}\nError: {e}"
+                    )
 
     async def get_run_status(self, workflow_id: str):
         """获取 workflow 执行情况"""
