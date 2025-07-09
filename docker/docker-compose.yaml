@@ -1,8 +1,8 @@
 services:
-  tg-translation-bot:
-    image: ghcr.io/qin2dim/tg-translation-bot:latest
+  telegram-dify-bot:
+    image: ghcr.io/qin2dim/telegram-dify-bot:latest
     restart: always
-    container_name: tg-translation-bot
+    container_name: telegram-dify-bot
     env_file:
       - .env
     volumes:
