@@ -1,0 +1,10 @@
+services:
+  tg-translation-bot:
+    image: ghcr.io/qin2dim/tg-translation-bot:latest
+    restart: always
+    container_name: tg-translation-bot
+    env_file:
+      - .env
+    volumes:
+      - "./logs:/app/app/logs"
+    command: uv run app/main.py
