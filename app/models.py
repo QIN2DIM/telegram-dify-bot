@@ -7,6 +7,7 @@
 """
 
 from enum import Enum
+from pathlib import Path
 from typing import Type, Literal, List, Union
 
 from pydantic import BaseModel, Field
@@ -119,7 +120,7 @@ WORKFLOW_RUN_OUTPUTS_TYPE = Union[str, AnswerType]
 
 
 class WorkflowRunOutputs(BaseModel):
-    type: AnswerType | None = Field(default=None, description="任务类型")
+    type: WORKFLOW_RUN_OUTPUTS_TYPE | None = Field(default=None, description="任务类型")
     answer: str | None = Field(default=None, description="处理结果")
 
 
@@ -135,3 +136,9 @@ class WorkflowRunResponse(BaseModel):
     task_id: str
     workflow_run_id: str
     data: WorkflowRunData
+
+
+class Interaction(BaseModel):
+    task_type: TaskType | None = None
+    photo_paths: List[Path] | None = None
+    from_user_fmt: str | None = None

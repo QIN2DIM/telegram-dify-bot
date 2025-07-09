@@ -164,7 +164,7 @@ def _is_available_direct_translation(
 
     # 4. 非自动模式下，没有提及机器人且没有实体则不触发翻译
     if not is_auto_trigger and not message.entities and not message.caption_entities:
-        logger.debug("[IGNORE] 非自动模式下，没有提及机器人且没有实体则不触发翻译")
+        # logger.debug("[IGNORE] 非自动模式下，没有提及机器人且没有实体则不触发翻译")
         return None
 
     # 5. 检查是否直接提及机器人
@@ -175,7 +175,7 @@ def _is_available_direct_translation(
     if is_auto_trigger and (message.text or message.photo or message.caption):
         return TaskType.AUTO
 
-    logger.debug("[IGNORE] unknown type message")
+    # logger.debug("[IGNORE] unknown type message")
     return None
 
 

@@ -13,7 +13,7 @@ from telegram import Update, Message
 from telegram.ext import ContextTypes
 
 from dify.workflow_tool import direct_translation_tool
-from models import TaskType
+from models import TaskType, Interaction
 from mybot.cli import auto_translation_enabled_chats
 from mybot.common import (
     storage_messages_dataset,
@@ -60,7 +60,6 @@ async def _get_chat_history_for_mention(
     """
     # TODO: 从存储的消息数据集中获取历史消息
     # 可以使用 storage_messages_dataset 存储的数据
-    logger.debug(f"Attempting to get chat history for chat {chat_id}, message {trigger_message_id}")
 
     # 临时返回空历史记录
     # 在实际实现中，应该从数据库查询历史消息
@@ -97,27 +96,9 @@ async def _get_reply_mode_context(
     return history_messages, user_preferences
 
 
-async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    处理翻译请求，支持文本和图片
-
-    功能特性：
-    - 支持四种任务类型：MENTION, MENTION_WITH_REPLY, REPLAY, AUTO
-    - 通过对用户消息添加表情回应来确认收到请求
-    - 自动下载并处理图片（选择最高质量版本）
-    - 处理引用消息中的文本和图片内容
-    - 根据不同模式构建上下文，携带历史消息和用户偏好
-    - 统一的回复策略（按优先级）：
-      1. 尝试直接回复触发消息
-      2. 如果失败，尝试@mention用户
-      3. 最后兜底：直接发送消息到群组
-    - 自动清理过期的临时图片文件
-    - 完整的错误处理和日志记录
-    """
+async def _pre_interactivity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     trigger_message = update.effective_message
-
-    # ==================== Section 1: LLM触发前交互 ====================
 
     # todo: remove
     with suppress(Exception):
@@ -136,18 +117,20 @@ async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     if task_type == TaskType.MENTION:
         # 检查用户的真实输入内容（排除@机器人的部分）
-        real_text = (trigger_message.text or trigger_message.caption or "").replace(f"@{context.bot.username}", "")
-        
+        real_text = (trigger_message.text or trigger_message.caption or "").replace(
+            f"@{context.bot.username}", ""
+        )
+
         # 情况1: 没有图片也没有文本内容 - 返回普通打招呼
         if not real_text.strip() and not trigger_message.photo:
             await trigger_message.reply_text(get_hello_reply())
             return
-        
+
         # 情况2: 仅有图片但没有明确的文本指示 - 返回图片相关的友善提醒
         if trigger_message.photo and not real_text.strip():
             await trigger_message.reply_text(get_image_mention_prompt())
             return
-        
+
         # MENTION: 对用户消息添加表情回应表示已收到
         try:
             await context.bot.set_message_reaction(
@@ -212,7 +195,17 @@ async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             except Exception as e:
                 logger.error(f"Failed to download photos from replied message: {e}")
 
-    # ==================== Section 2: LLM调用 ====================
+    return Interaction(task_type=task_type, from_user_fmt=from_user_fmt, photo_paths=photo_paths)
+
+
+async def _invoke_model(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, interaction: Interaction
+):
+    chat = update.effective_chat
+    trigger_message = update.effective_message
+    task_type = interaction.task_type
+    from_user_fmt = interaction.from_user_fmt
+    photo_paths = interaction.photo_paths
 
     # 构建消息上下文
     message_text = trigger_message.text or trigger_message.caption or ""
@@ -261,8 +254,7 @@ async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             # 使用 REPLY 模板构建完整上下文
             if history_messages:
                 message_context = REPLY_PROMPT_TEMPLATE.format(
-                    user_query=user_query,
-                    history_messages=history_messages or "无历史记录",
+                    user_query=user_query, history_messages=history_messages or "无历史记录"
                 )
                 # Add 用户偏好记录
                 if user_preferences:
@@ -271,7 +263,6 @@ async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     )
 
     print(message_context)
-    logger.debug(f"Built message context for {task_type}: {len(message_context)} chars")
 
     # 调用 LLM 进行处理
     result = await direct_translation_tool(
@@ -288,7 +279,70 @@ async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         )
         logger.debug(f"LLM Result: \n{outputs_json}")
 
-    # ==================== Section 3: 任务交付 ====================
+    return result_text
+
+
+async def _send_message(context, chat_id, text, reply_to_message_id=None, log_prefix=""):
+    """
+    发送消息的辅助函数，优雅降级处理 Markdown 格式错误
+
+    Args:
+        context: Telegram context
+        chat_id: 聊天ID
+        text: 消息文本
+        reply_to_message_id: 可选，回复消息ID
+        log_prefix: 日志前缀
+
+    Returns:
+        bool: 发送是否成功
+    """
+    try:
+        # 先尝试 Markdown 格式
+        if reply_to_message_id:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                parse_mode="Markdown",
+                reply_to_message_id=reply_to_message_id,
+            )
+        else:
+            await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
+        # logger.debug(f"{log_prefix} sent with Markdown")
+        return True
+    except Exception as err:
+        logger.debug(f"Failed to send with Markdown: {err}")
+        try:
+            # Markdown 失败，尝试纯文本
+            if reply_to_message_id:
+                await context.bot.send_message(
+                    chat_id=chat_id, text=text, reply_to_message_id=reply_to_message_id
+                )
+            else:
+                await context.bot.send_message(chat_id=chat_id, text=text)
+            logger.debug(f"{log_prefix} sent without parse_mode - {err}")
+            return True
+        except Exception as e2:
+            logger.error(f"Failed to send message: {e2}")
+            return False
+
+
+async def _response_message(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, interaction: Interaction, result_text: str
+):
+    """
+
+    Args:
+        update:
+        context:
+        interaction: 交互配置
+        result_text: 模型最终的输出结果
+
+    Returns:
+
+    """
+    chat = update.effective_chat
+    trigger_message = update.effective_message
+    task_type = interaction.task_type
 
     # 根据不同的task_type采用不同的回复方式
     if task_type in [TaskType.MENTION, TaskType.MENTION_WITH_REPLY, TaskType.REPLAY]:
@@ -296,12 +350,13 @@ async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         reply_sent = False
 
         # 方案1: 尝试直接回复触发消息
-        try:
-            await trigger_message.reply_text(result_text, parse_mode="Markdown")
-            reply_sent = True
-            logger.debug("Reply sent via direct reply to trigger message")
-        except Exception as e:
-            logger.debug(f"Failed to reply to trigger message: {e}")
+        reply_sent = await _send_message(
+            context,
+            chat.id,
+            result_text,
+            reply_to_message_id=trigger_message.message_id,
+            log_prefix="Direct reply to trigger message",
+        )
 
         # 方案2: 如果方案1失败，尝试mention用户
         if not reply_sent:
@@ -317,24 +372,46 @@ async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     user_mention = "User"
 
                 final_text = f"{user_mention}\n\n{result_text}"
-                await context.bot.send_message(
-                    chat_id=chat.id, text=final_text, parse_mode="Markdown"
+                reply_sent = await _send_message(
+                    context, chat.id, final_text, log_prefix="Reply via mention"
                 )
-                reply_sent = True
-                logger.debug("Reply sent via mention")
             except Exception as e:
                 logger.error(f"Failed to send message with mention: {e}")
 
         # 方案3: 最后的兜底方案 - 直接发送消息，不mention任何人
         if not reply_sent:
-            try:
-                await context.bot.send_message(
-                    chat_id=chat.id, text=result_text, parse_mode="Markdown"
-                )
-                logger.debug("Reply sent directly without mention")
-            except Exception as e:
-                logger.error(f"Failed to send message: {e}")
+            reply_sent = await _send_message(
+                context, chat.id, result_text, log_prefix="Reply directly"
+            )
 
     elif task_type == TaskType.AUTO:
         # AUTO: 直接发在群里，不打扰任何人
-        await context.bot.send_message(chat_id=chat.id, text=result_text, parse_mode="Markdown")
+        await _send_message(context, chat.id, result_text, log_prefix="Auto reply")
+
+
+async def translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    处理翻译请求，支持文本和图片
+
+    功能特性：
+    - 支持四种任务类型：MENTION, MENTION_WITH_REPLY, REPLAY, AUTO
+    - 通过对用户消息添加表情回应来确认收到请求
+    - 自动下载并处理图片（选择最高质量版本）
+    - 处理引用消息中的文本和图片内容
+    - 根据不同模式构建上下文，携带历史消息和用户偏好
+    - 统一的回复策略（按优先级）：
+      1. 尝试直接回复触发消息
+      2. 如果失败，尝试@mention用户
+      3. 最后兜底：直接发送消息到群组
+    - 完整的错误处理和日志记录
+    """
+    # ==================== Section 1: LLM触发前交互 ====================
+    if not (interaction := await _pre_interactivity(update, context)):
+        return
+
+    # ==================== Section 2: LLM调用 ====================
+    if not (result_text := await _invoke_model(update, context, interaction)):
+        return
+
+    # ==================== Section 3: 任务交付 ====================
+    await _response_message(update, context, interaction, result_text)
