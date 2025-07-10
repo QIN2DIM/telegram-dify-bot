@@ -118,15 +118,21 @@ async def send_streaming_response(
                     continue
                 if node_title := chunk_data.get("title"):
                     progress_text = f"> {node_title}"
-                    try:
-                        await context.bot.edit_message_text(
-                            chat_id=chat.id,
-                            message_id=initial_message.message_id,
-                            text=progress_text,
-                            parse_mode=ParseMode.MARKDOWN_V2,
-                        )
-                    except Exception as err:
-                        logger.error(f"Failed to edit message: {err}")
+                    for parse_mode in [
+                        ParseMode.MARKDOWN_V2,
+                        ParseMode.MARKDOWN,
+                        DEFAULT_NONE,
+                    ]:
+                        try:
+                            await context.bot.edit_message_text(
+                                chat_id=chat.id,
+                                message_id=initial_message.message_id,
+                                text=progress_text,
+                                parse_mode=parse_mode,
+                            )
+                            break
+                        except Exception as err:
+                            logger.error(f"Failed to edit message: {err}")
 
         with suppress(Exception):
             outputs_json = json.dumps(final_result, indent=2, ensure_ascii=False)

@@ -103,4 +103,4 @@ async def build_message_context(
                     user_preferences=user_preferences
                 ).strip()
 
-    return message_context
+    return message_context.strip()
