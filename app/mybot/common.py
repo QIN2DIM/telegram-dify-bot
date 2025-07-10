@@ -12,10 +12,9 @@ from pathlib import Path
 from typing import List
 
 from loguru import logger
-from telegram import Message, Chat, Bot
+from telegram import Message, Bot
 
-from models import TaskType
-from settings import DATA_DIR, settings
+from settings import DATA_DIR
 import random
 
 
@@ -97,87 +96,6 @@ async def _download_multiple_photos_from_message(message: Message, bot: Bot) -> 
     """
     # 对于单条消息，直接调用单张图片下载函数
     return await _download_photos_from_message(message, bot)
-
-
-def _is_mention_bot(message: Message, bot_username: str) -> bool:
-    """
-    检查消息是否提及了指定的机器人
-
-    Args:
-        message: Telegram消息对象
-        bot_username: 机器人用户名
-
-    Returns:
-        bool: 如果提及了机器人则返回True
-    """
-    # 提取@后的用户名
-    for entity in message.entities:
-        if entity.type == "mention":
-            mentioned_username = message.text[entity.offset + 1 : entity.offset + entity.length]
-            if mentioned_username == bot_username:
-                return True
-
-    for entity in message.caption_entities:
-        if entity.type == "mention":
-            mentioned_username = message.caption[entity.offset + 1 : entity.offset + entity.length]
-            if mentioned_username == bot_username:
-                return True
-
-    return False
-
-
-def _is_available_direct_translation(
-    chat: Chat, message: Message, bot: Bot, is_auto_trigger: bool = False
-) -> TaskType | None:
-    """
-    判断是否需要进行直接翻译及翻译类型
-
-    Args:
-        chat: Telegram聊天对象
-        message: 触发消息对象
-        bot: 机器人对象
-        is_auto_trigger: 是否为自动触发模式
-
-    Returns:
-        TaskType: 翻译任务类型，如果不需要翻译则返回None
-    """
-    # 1. 检查聊天是否在白名单中
-    if chat.id not in settings.whitelist:
-        return None
-
-    # 2. 过滤机器人消息（如果需要的话）
-    if message.from_user.is_bot:
-        # 这里可以根据需要添加特殊逻辑
-        # 比如频道消息等特殊情况的处理
-        pass
-
-    # 3. 检查是否为回复消息的情况
-    if message.reply_to_message:
-        reply_user = message.reply_to_message.from_user
-
-        # 用户回复机器人消息，提出新的编辑需求
-        if reply_user.is_bot and reply_user.username == bot.username:
-            return TaskType.REPLAY
-
-        # 用户在回复其他消息时提及机器人
-        if _is_mention_bot(message, bot.username):
-            return TaskType.MENTION_WITH_REPLY
-
-    # 4. 非自动模式下，没有提及机器人且没有实体则不触发翻译
-    if not is_auto_trigger and not message.entities and not message.caption_entities:
-        # logger.debug("[IGNORE] 非自动模式下，没有提及机器人且没有实体则不触发翻译")
-        return None
-
-    # 5. 检查是否直接提及机器人
-    if _is_mention_bot(message, bot.username):
-        return TaskType.MENTION
-
-    # 6. 自动模式下，有文本内容或图片就可以翻译
-    if is_auto_trigger and (message.text or message.photo or message.caption):
-        return TaskType.AUTO
-
-    # logger.debug("[IGNORE] unknown type message")
-    return None
 
 
 def cleanup_old_photos(max_age_hours: int = 24) -> None:

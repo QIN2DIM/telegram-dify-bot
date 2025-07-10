@@ -12,9 +12,9 @@ from loguru import logger
 from telegram import Update
 from telegram.ext import CommandHandler, MessageHandler, filters
 
-from mybot import cli
-from mybot import task_handler
 from mybot.common import cleanup_old_photos
+from mybot.handlers import command_handler
+from mybot.handlers.message_handler import handle_message
 from settings import settings, LOG_DIR
 from utils import init_log
 
@@ -40,13 +40,13 @@ def main() -> None:
     application = settings.get_default_application()
 
     # on different commands - answer in Telegram
-    application.add_handler(CommandHandler("start", cli.start))
-    application.add_handler(CommandHandler("help", cli.help_command))
-    application.add_handler(CommandHandler("auto", cli.auto))
-    application.add_handler(CommandHandler("pause", cli.pause))
+    application.add_handler(CommandHandler("start", command_handler.start))
+    application.add_handler(CommandHandler("help", command_handler.help_command))
+    application.add_handler(CommandHandler("auto", command_handler.auto))
+    application.add_handler(CommandHandler("pause", command_handler.pause))
 
     # on non command i.e message - echo the message on Telegram
-    application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, task_handler))
+    application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling(allowed_updates=Update.ALL_TYPES)
