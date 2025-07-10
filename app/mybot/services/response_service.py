@@ -11,10 +11,13 @@ from typing import AsyncGenerator, Dict, Any
 
 from loguru import logger
 from telegram import Update
+from telegram._utils.defaultvalue import DEFAULT_NONE
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from models import Interaction, TaskType
+
+pending_parse_mode = [ParseMode.MARKDOWN, ParseMode.MARKDOWN_V2, ParseMode.HTML, DEFAULT_NONE]
 
 
 async def _send_message(
@@ -25,25 +28,26 @@ async def _send_message(
     log_prefix: str = "",
 ) -> bool:
     """发送消息的辅助函数，优雅降级处理 Markdown 格式错误"""
-    try:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            parse_mode=ParseMode.HTML,
-            reply_to_message_id=reply_to_message_id,
-        )
-        return True
-    except Exception as err:
-        logger.debug(f"Failed to send with HTML: {err}")
+    for parse_mode in pending_parse_mode:
         try:
             await context.bot.send_message(
-                chat_id=chat_id, text=text, reply_to_message_id=reply_to_message_id
+                chat_id=chat_id,
+                text=text,
+                reply_to_message_id=reply_to_message_id,
+                parse_mode=parse_mode,
             )
-            logger.debug(f"{log_prefix} sent without parse_mode - {err}")
             return True
-        except Exception as e2:
-            logger.error(f"Failed to send message: {e2}")
-            return False
+        except Exception as err:
+            logger.error(f"Failed to send final message({parse_mode}): {err}")
+
+    try:
+        await context.bot.send_message(
+            chat_id=chat_id, text=text, reply_to_message_id=reply_to_message_id
+        )
+        return True
+    except Exception as e2:
+        logger.error(f"Failed to send message: {e2}")
+        return False
 
 
 async def send_standard_response(
@@ -89,7 +93,7 @@ async def send_streaming_response(
 
     try:
         # 创建初始消息
-        initial_text = "🤔 思考中..."
+        initial_text = "🤔 Planning..."
         initial_message = await context.bot.send_message(
             chat_id=chat.id,
             text=initial_text,
@@ -110,6 +114,8 @@ async def send_streaming_response(
                 final_result = chunk_data.get('outputs', {})
                 break
             elif event == "node_started":
+                if chunk_data.get("node_type", "") != "llm":
+                    continue
                 if node_title := chunk_data.get("title"):
                     progress_text = f"> {node_title}"
                     try:
@@ -117,9 +123,10 @@ async def send_streaming_response(
                             chat_id=chat.id,
                             message_id=initial_message.message_id,
                             text=progress_text,
+                            parse_mode=ParseMode.MARKDOWN_V2,
                         )
-                    except Exception:
-                        pass
+                    except Exception as err:
+                        logger.error(f"Failed to edit message: {err}")
 
         with suppress(Exception):
             outputs_json = json.dumps(final_result, indent=2, ensure_ascii=False)
@@ -127,17 +134,18 @@ async def send_streaming_response(
 
         # 更新为最终结果
         if final_result and (final_answer := final_result.get(answer_key, '')):
-            try:
-                await context.bot.edit_message_text(
-                    chat_id=chat.id,
-                    message_id=initial_message.message_id,
-                    text=final_answer,
-                    parse_mode=ParseMode.HTML,
-                )
-            except Exception:
-                await context.bot.edit_message_text(
-                    chat_id=chat.id, message_id=initial_message.message_id, text=final_answer
-                )
+            for parse_mode in pending_parse_mode:
+                try:
+                    await context.bot.edit_message_text(
+                        chat_id=chat.id,
+                        message_id=initial_message.message_id,
+                        text=final_answer,
+                        parse_mode=parse_mode,
+                    )
+                    break
+                except Exception as err:
+                    logger.error(f"Failed to send final message({parse_mode}): {err}")
+
         else:
             await context.bot.edit_message_text(
                 chat_id=chat.id, message_id=initial_message.message_id, text="抱歉，处理失败。"

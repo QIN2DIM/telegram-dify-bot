@@ -6,7 +6,6 @@
 @Desc    : Service for building message contexts for LLM.
 """
 
-from loguru import logger
 from telegram import Update, Message
 from telegram.ext import ContextTypes
 
@@ -51,7 +50,6 @@ async def _get_reply_mode_context(
     chat, user_message: Message, bot_message: Message, user_id: int, bot
 ) -> tuple[str, str]:
     """获取 REPLY 模式的上下文消息和用户偏好消息"""
-    logger.debug(f"Getting reply mode context for user {user_id} in chat {chat.id}")
     history_messages = ""
     if bot_message:
         history_messages = await _format_message(bot_message)
