@@ -203,9 +203,7 @@ async def _pre_interactivity(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def _build_message_context(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    task_type: TaskType,
+    update: Update, context: ContextTypes.DEFAULT_TYPE, task_type: TaskType
 ) -> str:
     """构建消息上下文，提取共同的上下文构建逻辑"""
     chat = update.effective_chat
