@@ -32,6 +32,22 @@ MENTION_WITH_REPLY_PROMPT_TEMPLATE = """
 </quote_content>
 """
 
+REPLY_SINGLE_PROMPT_TEMPLATE = """
+以下是指令输入:
+<query>
+{user_query}
+</query>
+
+以下是引用的的消息：
+<quote_content>
+{history_messages}
+</quote_content>
+
+**注意:** 
+1. 区分 quote_content 中的用户名和需要编辑的消息。
+2. quote_content 可能是用户期望处理的消息，也可能只是用户通过 reply 机器人发送的消息来触发机器人响应，你需要根据上下文判断用户的真实意图
+"""
+
 # REPLY 模式的提示词模板
 REPLY_PROMPT_TEMPLATE = """
 用户回复了你之前的消息，你需要根据对话上下文和用户的需求继续提供帮助。

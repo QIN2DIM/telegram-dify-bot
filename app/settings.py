@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Set, Any
+from typing import Set, Any, Literal
 from urllib.request import getproxies
 
 import dotenv
@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     DIFY_WORKFLOW_API_KEY: SecretStr = Field(default="")
 
     TELEGRAM_CHAT_WHITELIST: str = Field(default="")
+
+    # 响应模式配置: blocking 或 streaming
+    RESPONSE_MODE: Literal["blocking", "streaming"] = Field(
+        default="streaming", description="响应模式: blocking 或 streaming"
+    )
 
     whitelist: Set[int] = Field(default_factory=set)
 
