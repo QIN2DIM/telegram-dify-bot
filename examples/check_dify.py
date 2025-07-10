@@ -38,6 +38,8 @@ async def main():
             outputs = json.dumps(chunk_data['outputs'], ensure_ascii=False, indent=2)
             print(outputs)
         elif event in ["workflow_started", "node_started", "tts_message"]:
+            if event != "workflow_started" and chunk_data.get("node_type", "") != "llm":
+                continue
             if node_title := chunk_data.get("title"):
                 print(f"✨ {node_title} {chunk_data}")
 
