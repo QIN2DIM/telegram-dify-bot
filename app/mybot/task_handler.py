@@ -10,9 +10,10 @@ from contextlib import suppress
 
 from loguru import logger
 from telegram import Update, Message
+from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
-from dify.workflow_tool import run_blocking_dify_workflow
+from dify.workflow_tool import run_blocking_dify_workflow, run_streaming_dify_workflow
 from models import TaskType, Interaction
 from mybot.cli import auto_translation_enabled_chats
 from mybot.common import (
@@ -25,10 +26,11 @@ from mybot.common import (
 from mybot.prompts import (
     MENTION_PROMPT_TEMPLATE,
     MENTION_WITH_REPLY_PROMPT_TEMPLATE,
-    REPLY_PROMPT_TEMPLATE,
     MESSAGE_FORMAT_TEMPLATE,
     USER_PREFERENCES_TPL,
+    REPLY_SINGLE_PROMPT_TEMPLATE,
 )
+from settings import settings
 
 
 async def _format_message(message: Message) -> str:
@@ -200,14 +202,14 @@ async def _pre_interactivity(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return Interaction(task_type=task_type, from_user_fmt=from_user_fmt, photo_paths=photo_paths)
 
 
-async def _invoke_model(
-    update: Update, context: ContextTypes.DEFAULT_TYPE, interaction: Interaction
-):
+async def _build_message_context(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    task_type: TaskType,
+) -> str:
+    """构建消息上下文，提取共同的上下文构建逻辑"""
     chat = update.effective_chat
     trigger_message = update.effective_message
-    task_type = interaction.task_type
-    from_user_fmt = interaction.from_user_fmt
-    photo_paths = interaction.photo_paths
 
     # 构建消息上下文
     message_text = trigger_message.text or trigger_message.caption or ""
@@ -255,14 +257,27 @@ async def _invoke_model(
 
             # 使用 REPLY 模板构建完整上下文
             if history_messages:
-                message_context = REPLY_PROMPT_TEMPLATE.format(
-                    user_query=user_query, history_messages=history_messages or "无历史记录"
-                )
+                message_context = REPLY_SINGLE_PROMPT_TEMPLATE.format(
+                    user_query=user_query, history_messages=history_messages
+                ).strip()
                 # Add 用户偏好记录
                 if user_preferences:
                     message_context += USER_PREFERENCES_TPL.format(
                         user_preferences=user_preferences
-                    )
+                    ).strip()
+
+    return message_context
+
+
+async def _invoke_model_blocking(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, interaction: Interaction
+) -> str:
+    """原先的 blocking 模式调用"""
+    task_type = interaction.task_type
+    from_user_fmt = interaction.from_user_fmt
+    photo_paths = interaction.photo_paths
+
+    message_context = await _build_message_context(update, context, task_type)
 
     print(message_context)
 
@@ -282,6 +297,170 @@ async def _invoke_model(
         logger.debug(f"LLM Result: \n{outputs_json}")
 
     return result_text
+
+
+async def _invoke_model_streaming(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, interaction: Interaction
+) -> bool:
+    """流式响应模式"""
+    chat = update.effective_chat
+    trigger_message = update.effective_message
+    task_type = interaction.task_type
+    from_user_fmt = interaction.from_user_fmt
+    photo_paths = interaction.photo_paths
+
+    message_context = await _build_message_context(update, context, task_type)
+
+    print(message_context)
+
+    # 先创建初始消息
+    initial_message = None
+    error_message = None
+
+    try:
+        # 根据不同的task_type创建初始消息
+        if task_type in [TaskType.MENTION, TaskType.MENTION_WITH_REPLY, TaskType.REPLAY]:
+            # 尝试直接回复触发消息
+            try:
+                initial_message = await context.bot.send_message(
+                    chat_id=chat.id,
+                    text="🤔 思考中...",
+                    reply_to_message_id=trigger_message.message_id,
+                )
+            except Exception:
+                # 如果直接回复失败，尝试mention用户
+                try:
+                    if trigger_message.from_user:
+                        if trigger_message.from_user.username:
+                            user_mention = f"@{trigger_message.from_user.username}"
+                        else:
+                            user_mention = trigger_message.from_user.first_name or "User"
+                    else:
+                        user_mention = "User"
+
+                    initial_message = await context.bot.send_message(
+                        chat_id=chat.id, text=f"{user_mention}\n\n🤔 思考中..."
+                    )
+                except Exception:
+                    # 最后兜底方案
+                    initial_message = await context.bot.send_message(
+                        chat_id=chat.id, text="🤔 思考中..."
+                    )
+        elif task_type == TaskType.AUTO:
+            # AUTO模式直接发送消息
+            initial_message = await context.bot.send_message(
+                chat_id=chat.id, text="> 🤔 思考中...", parse_mode=ParseMode.HTML
+            )
+
+        if not initial_message:
+            logger.error("Failed to create initial message")
+            return False
+
+        # 流式调用模型
+        final_result: dict | None = None
+        answer_key = "answer"
+
+        streaming_generator = await run_streaming_dify_workflow(
+            bot_username=f"{context.bot.username.rstrip('@')}",
+            message_context=message_context,
+            from_user=from_user_fmt,
+            with_files=photo_paths,
+        )
+
+        async for chunk in streaming_generator:
+            if not chunk or not isinstance(chunk, dict):
+                continue
+
+            if not (event := chunk.get("event")):
+                continue
+
+            chunk_data = chunk["data"]
+
+            if event == "workflow_finished":
+                # 最终结果
+                final_result = chunk_data.get('outputs', {})
+                break
+            elif event in ["workflow_started", "node_started"]:
+                # 节点开始，显示标题
+                if node_title := chunk_data.get("title"):
+                    # 更新消息，显示当前进度
+                    progress_text = f"> {node_title}"
+                    try:
+                        await context.bot.edit_message_text(
+                            chat_id=chat.id,
+                            message_id=initial_message.message_id,
+                            text=progress_text,
+                            parse_mode=ParseMode.MARKDOWN_V2,
+                        )
+                    except Exception as e:
+                        logger.debug(f"Failed to update progress message: {e}")
+            elif event == "tts_message":
+                # 处理 TTS 消息（如果需要）
+                logger.warning("不支持 tts message")
+
+        with suppress(Exception):
+            outputs_json = json.dumps(final_result, indent=2, ensure_ascii=False)
+            logger.debug(f"LLM Result: \n{outputs_json}")
+
+        # 更新为最终结果
+        if final_result:
+            final_answer = final_result.get(answer_key, '')
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=chat.id,
+                    message_id=initial_message.message_id,
+                    text=final_answer,
+                    parse_mode=ParseMode.HTML,
+                )
+            except Exception as e:
+                logger.debug(f"Failed to update with Markdown: {e}")
+                try:
+                    await context.bot.edit_message_text(
+                        chat_id=chat.id, message_id=initial_message.message_id, text=final_answer
+                    )
+                except Exception as e2:
+                    logger.error(f"Failed to update final message: {e2}")
+                    return False
+        else:
+            # 如果没有最终结果，显示错误
+            error_message = "抱歉，处理过程中遇到问题，请稍后再试。"
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=chat.id, message_id=initial_message.message_id, text=error_message
+                )
+            except Exception as e:
+                logger.error(f"Failed to update error message: {e}")
+                return False
+
+        return True
+
+    except Exception as e:
+        logger.error(f"Streaming response error: {e}")
+
+        # 发送友好的错误消息
+        error_message = "抱歉，处理过程中遇到问题，请稍后再试。"
+
+        if initial_message:
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=chat.id, message_id=initial_message.message_id, text=error_message
+                )
+            except Exception as err:
+                logger.error(f"Failed to update error message: {err}")
+        else:
+            # 如果连初始消息都没有创建成功，尝试直接回复
+            try:
+                await _send_message(
+                    context,
+                    chat.id,
+                    error_message,
+                    reply_to_message_id=trigger_message.message_id,
+                    log_prefix="Error message",
+                )
+            except Exception as err:
+                logger.error(f"Failed to send error message: {err}")
+
+        return False
 
 
 async def _send_message(context, chat_id, text, reply_to_message_id=None, log_prefix=""):
@@ -304,12 +483,13 @@ async def _send_message(context, chat_id, text, reply_to_message_id=None, log_pr
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=text,
-                parse_mode="Markdown",
+                parse_mode=ParseMode.MARKDOWN_V2,
                 reply_to_message_id=reply_to_message_id,
             )
         else:
-            await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
-        # logger.debug(f"{log_prefix} sent with Markdown")
+            await context.bot.send_message(
+                chat_id=chat_id, text=text, parse_mode=ParseMode.MARKDOWN_V2
+            )
         return True
     except Exception as err:
         logger.debug(f"Failed to send with Markdown: {err}")
@@ -397,6 +577,7 @@ async def task_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     功能特性：
     - 支持四种任务类型：MENTION, MENTION_WITH_REPLY, REPLAY, AUTO
+    - 支持两种响应模式：blocking 和 streaming
     - 通过对用户消息添加表情回应来确认收到请求
     - 自动下载并处理图片（选择最高质量版本）
     - 处理引用消息中的文本和图片内容
@@ -412,8 +593,18 @@ async def task_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     # ==================== Section 2: LLM调用 ====================
-    if not (result_text := await _invoke_model(update, context, interaction)):
-        return
+    response_mode = settings.RESPONSE_MODE.lower()
 
-    # ==================== Section 3: 任务交付 ====================
-    await _response_message(update, context, interaction, result_text)
+    if response_mode == "streaming":
+        # 流式响应模式 - 在流式函数中直接处理消息发送
+        success = await _invoke_model_streaming(update, context, interaction)
+        if not success:
+            logger.error("Streaming response failed")
+            return
+    else:
+        # 默认 blocking 模式
+        if not (result_text := await _invoke_model_blocking(update, context, interaction)):
+            return
+
+        # ==================== Section 3: 任务交付 ====================
+        await _response_message(update, context, interaction, result_text)
