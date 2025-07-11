@@ -6,5 +6,23 @@ services:
     env_file:
       - .env
     volumes:
-      - "./logs:/app/app/logs"
+      - "./volumes/logs/bot:/app/app/logs"
     command: uv run app/main.py
+
+  url-context:
+    image: ech0sec/test123:latest
+    restart: always
+    container_name: url-context
+    ports:
+      - "30030:30030"
+    volumes:
+      - "./caches:/app/app/.cache"
+      - "./volumes/logs/url-context:/app/app/logs"
+    environment:
+      SERVER_HOST: "${SERVER_HOST:-}"
+      TZ: Asia/Shanghai
+      http_proxy:
+      https_proxy:
+      all_proxy:
+    entrypoint: [ "/usr/bin/tini", "--" ]
+    command: xvfb-run --auto-servernum --server-num=1 --server-args='-screen 0, 1920x1080x24' uv run app/main.py

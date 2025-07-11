@@ -91,7 +91,6 @@ Please use Telegram-compatible HTML for rich text formatting, instead of Markdow
 <b>bold <i>italic bold <s>italic bold strikethrough <span class="tg-spoiler">italic bold strikethrough spoiler</span></s> <u>underline italic bold</u></i> bold</b>
 <a href="http://www.example.com/">inline URL</a>
 <a href="tg://user?id=123456789">inline mention of a user</a>
-<tg-emoji emoji-id="5368324170671202286">👍</tg-emoji>
 <code>inline fixed-width code</code>
 <pre>pre-formatted fixed-width code block</pre>
 <pre><code class="language-python">pre-formatted fixed-width code block written in the Python programming language</code></pre>
@@ -100,11 +99,11 @@ Please use Telegram-compatible HTML for rich text formatting, instead of Markdow
 [example end]
 
 Please note:
+- You MUST NOT use emoji in your answers.
 - Only the tags mentioned above are currently supported.
 - All `<`, `>` and `&` symbols that are not a part of a tag or an HTML entity must be replaced with the corresponding HTML entities (`<` with `<`, `>` with `>` and `&` with `&`).
 - All numerical HTML entities are supported.
 - The API currently supports only the following named HTML entities: `<`, `>`, `&` and `"`.
 - Use nested `pre` and `code` tags, to define programming language for `pre` entity.
 - Programming language can't be specified for standalone `code` tags.
-- A valid emoji must be used as the content of the tg-emoji tag. The emoji will be shown instead of the custom emoji in places where a custom emoji cannot be displayed (e.g., system notifications) or if the message is forwarded by a non-premium user.
 """
