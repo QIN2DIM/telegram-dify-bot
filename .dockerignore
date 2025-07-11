@@ -65,4 +65,9 @@ Thumbs.db
 *.temp
 
 # Docker相关
-docker/publish.sh 
+docker/
+examples/
+.dockerignore
+README.md
+app/**/*.md
+.github/

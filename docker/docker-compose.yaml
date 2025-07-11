@@ -6,8 +6,8 @@ services:
     env_file:
       - .env
     volumes:
-      - "./volumes/logs/bot:/app/app/logs"
-      - "./volumes/data:/app/app/data"
+      - "./volumes/telegram-bot/logs:/app/app/logs"
+      - "./volumes/telegram-bot/data:/app/app/data"
     command: uv run app/main.py
 
   url-context:
@@ -17,8 +17,8 @@ services:
     ports:
       - "30030:30030"
     volumes:
-      - "./caches:/app/app/.cache"
-      - "./volumes/logs/url-context:/app/app/logs"
+      - "./volumes/url-context/caches:/app/app/.cache"
+      - "./volumes/url-context/logs:/app/app/logs"
     environment:
       SERVER_HOST: "${SERVER_HOST:-}"
       TZ: Asia/Shanghai
