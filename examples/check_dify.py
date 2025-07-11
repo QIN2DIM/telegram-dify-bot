@@ -17,7 +17,7 @@ async def main():
 
     user = "abc-123"
     bot_username = "qin2dimbot"
-    message_context = f"@{bot_username} Hello, my friend!"
+    message_context = f"@{bot_username} 计算 156335*23423624"
 
     # with_files = None
 
@@ -32,16 +32,24 @@ async def main():
         if not (event := chunk.get("event")):
             continue
 
-        chunk_data = chunk["data"]
+        chunk_data = chunk.get("data", {})
+        node_type = chunk_data.get("node_type", "")
+
+        print(chunk)
 
         if event == "workflow_finished":
             outputs = json.dumps(chunk_data['outputs'], ensure_ascii=False, indent=2)
             print(outputs)
+        elif event == "agent_log":
+            if agent_data := chunk_data.get("data", {}):
+                action = agent_data.get("action", "")
+                thought = agent_data.get("thought", "")
+                if action and thought:
+                    print(f"> ReAct: {action}\n{thought}")
         elif event in ["workflow_started", "node_started", "tts_message"]:
-            if event != "workflow_started" and chunk_data.get("node_type", "") != "llm":
-                continue
-            if node_title := chunk_data.get("title"):
-                print(f"✨ {node_title} {chunk_data}")
+            if node_type in ["llm", "agent"]:
+                if node_title := chunk_data.get("title"):
+                    print(f"✨ {node_title} {chunk_data}")
 
 
 if __name__ == '__main__':

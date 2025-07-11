@@ -110,33 +110,46 @@ async def send_streaming_response(
                 continue
 
             chunk_data = chunk.get("data", {})
+            node_type = chunk_data.get("node_type", "")
+
             if event == "workflow_finished":
                 final_result = chunk_data.get('outputs', {})
                 break
-            elif event == "node_started":
-                if chunk_data.get("node_type", "") != "llm":
-                    continue
+            elif event in ["node_started"] and node_type in ["llm", "agent"]:
                 if node_title := chunk_data.get("title"):
-                    progress_text = f"> {node_title}"
-                    for parse_mode in [
-                        ParseMode.MARKDOWN_V2,
-                        ParseMode.MARKDOWN,
-                        DEFAULT_NONE,
-                    ]:
+                    progress_text = f"<blockquote>{node_title}</blockquote>"
+                    try:
+                        await context.bot.edit_message_text(
+                            chat_id=chat.id,
+                            message_id=initial_message.message_id,
+                            text=progress_text,
+                            parse_mode=ParseMode.HTML,
+                        )
+                    except Exception as err:
+                        logger.error(f"Failed to edit node's title: {err}")
+            elif event == "agent_log":
+                if agent_data := chunk_data.get("data", {}):
+                    action = agent_data.get("action", "")
+                    thought = agent_data.get("thought", "")
+                    if action and thought:
+                        progress_text = f"<blockquote>ReAct: {action}</blockquote>\n\n{thought}"
                         try:
                             await context.bot.edit_message_text(
                                 chat_id=chat.id,
                                 message_id=initial_message.message_id,
                                 text=progress_text,
-                                parse_mode=parse_mode,
+                                parse_mode=ParseMode.HTML,
                             )
-                            break
                         except Exception as err:
-                            logger.error(f"Failed to edit message: {err}")
+                            logger.error(f"Failed to edit agent log: {err}")
 
+        # 输出响应日志
         with suppress(Exception):
-            outputs_json = json.dumps(final_result, indent=2, ensure_ascii=False)
-            logger.debug(f"LLM Result: \n{outputs_json}")
+            if final_result:
+                outputs_json = json.dumps(final_result, indent=2, ensure_ascii=False)
+                logger.debug(f"LLM Result: \n{outputs_json}")
+            else:
+                logger.warning("No final result")
 
         # 更新为最终结果
         if final_result and (final_answer := final_result.get(answer_key, '')):
