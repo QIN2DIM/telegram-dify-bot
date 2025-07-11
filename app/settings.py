@@ -3,11 +3,12 @@ from typing import Set, Any, Literal
 from urllib.request import getproxies
 
 import dotenv
+from loguru import logger
 from pydantic import SecretStr, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from telegram._utils.defaultvalue import DEFAULT_NONE
+from telegram.constants import ParseMode
 from telegram.ext import Application
-from loguru import logger
-
 
 dotenv.load_dotenv()
 
@@ -25,17 +26,42 @@ class Settings(BaseSettings):
         default="", description="通过 https://t.me/BotFather 获取机器人的 API_TOKEN"
     )
 
-    DIFY_APP_BASE_URL: str = Field(default="https://api.dify.ai/v1")
-    DIFY_WORKFLOW_API_KEY: SecretStr = Field(default="")
-
-    TELEGRAM_CHAT_WHITELIST: str = Field(default="")
-
-    # 响应模式配置: blocking 或 streaming
-    RESPONSE_MODE: Literal["blocking", "streaming"] = Field(
-        default="streaming", description="响应模式: blocking 或 streaming"
+    DIFY_APP_BASE_URL: str = Field(
+        default="https://api.dify.ai/v1", description="Dify Workflow 后端连接"
     )
 
-    whitelist: Set[int] = Field(default_factory=set)
+    DIFY_WORKFLOW_API_KEY: SecretStr = Field(
+        default="",
+        description="用于连接 Dify Workflow 的 API_KEY。请注意该项目仅适配 Workflow 类型 Application（非 Chatflow）。",
+    )
+
+    TELEGRAM_CHAT_WHITELIST: str = Field(
+        default="", description="允许的聊天 ID，可以同时约束 channel，group，private，supergroup。"
+    )
+
+    RESPONSE_MODE: Literal["blocking", "streaming"] = Field(
+        default="streaming", description="响应模式: `blocking` 或 `streaming`。"
+    )
+
+    whitelist: Set[int] = Field(
+        default_factory=set,
+        description="配置 TELEGRAM_CHAT_WHITELIST 后， id 被清洗到该列表方便使用",
+    )
+
+    BOT_ANSWER_PARSE_MODE: Literal["HTML"] = Field(
+        default="HTML",
+        description="约束模型的输出格式，默认为 HTML，要求模型用 HTML 表达富文本而非 Markdown。",
+    )
+
+    BOT_OUTPUTS_TYPE_KEY: str = Field(
+        default="type",
+        description="在 Dify Workflow 返回的 outputs 中，哪个字段在区分任务类型。默认为 `type` 字段。",
+    )
+
+    BOT_OUTPUTS_ANSWER_KEY: str = Field(
+        default="answer",
+        description="在 Dify Workflow 返回的 outputs 中，将哪个字段的值视为用于回复的纯文本答案。默认为 `answer` 字段。",
+    )
 
     def model_post_init(self, context: Any, /) -> None:
         try:
@@ -62,6 +88,12 @@ class Settings(BaseSettings):
             )
 
         return application
+
+    @property
+    def pending_parse_mode(self):
+        if self.BOT_ANSWER_PARSE_MODE == "HTML":
+            return [ParseMode.HTML, DEFAULT_NONE]
+        return [ParseMode.MARKDOWN, ParseMode.MARKDOWN_V2, ParseMode.HTML, DEFAULT_NONE]
 
 
 settings = Settings()  # type: ignore
