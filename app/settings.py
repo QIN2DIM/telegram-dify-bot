@@ -85,7 +85,7 @@ class Settings(BaseSettings):
         return application
 
     @property
-    def pending_parse_mode(self) -> List[ParseMode | DEFAULT_NONE]:
+    def pending_parse_mode(self):
         if self.BOT_ANSWER_PARSE_MODE == "HTML":
             return [ParseMode.HTML, DEFAULT_NONE]
         return [ParseMode.MARKDOWN, ParseMode.MARKDOWN_V2, ParseMode.HTML, DEFAULT_NONE]
