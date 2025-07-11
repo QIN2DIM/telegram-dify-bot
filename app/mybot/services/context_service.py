@@ -107,6 +107,6 @@ async def build_message_context(
 
     # Guidelines for Adding Telegram HTML Parse Mode
     if settings.BOT_ANSWER_PARSE_MODE == "HTML":
-        message_context = f"{message_context}\n\n{HTML_STYLE_TPL}".strip()
+        message_context = f"{message_context}\n\n---\n\n{HTML_STYLE_TPL}".strip()
 
     return message_context.strip()
