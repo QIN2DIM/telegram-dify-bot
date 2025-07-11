@@ -63,6 +63,22 @@ Optimization
   3. 暂停自动监听模式（`/pause`）
      确保 re-start 后不处理过时消息
 
+## FQA
+
+### Telegram `parse_mode=HTML` 支持的标签列表
+
+| 格式化名称                  | HTML 标签                                                  | 描述和说明                                                   |
+| :-------------------------- | :--------------------------------------------------------- | :----------------------------------------------------------- |
+| **加粗 (Bold)**             | `<b>...</b>` 或 `<strong>...</strong>`                     | 使文本变为粗体。两者效果相同。                               |
+| **斜体 (Italic)**           | `<i>...</i>` 或 `<em>...</em>`                             | 使文本变为斜体。两者效果相同。                               |
+| **下划线 (Underline)**      | `<u>...</u>` 或 `<ins>...</ins>`                           | 为文本添加下划线。                                           |
+| **删除线 (Strikethrough)**  | `<s>...</s>` 或 `<strike>...</strike>` 或 `<del>...</del>` | 为文本添加删除线。                                           |
+| **剧透 (Spoiler)**          | `<tg-spoiler>...</tg-spoiler>`                             | 隐藏部分文本，用户需要点击后才能查看。                       |
+| **链接 (Link)**             | `<a href="URL">...</a>`                                    | 创建一个超链接。URL 必须是完整的，例如 `https://example.com`。 |
+| **行内代码 (Inline Code)**  | `<code>...</code>`                                         | 以等宽字体显示一小段文本，通常用于代码变量、命令等。         |
+| **代码块 (Code Block)**     | `<pre>...</pre>`                                           | 创建一个预格式化的多行代码块，保留所有空格和换行符，并以等宽字体显示。 |
+| **带语法高亮的代码块**      | `<pre><code class="language-python">...</code></pre>`      | 在代码块的基础上增加语法高亮。`language-python` 可以替换为 `language-javascript`, `language-java` 等。 |
+| **引用 (Quote/Blockquote)** | `<blockquote>...</blockquote>`                             | 创建一个引用块，通常带有垂直线标识。                         |
 
 ## Reference
 
