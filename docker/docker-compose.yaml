@@ -7,6 +7,7 @@ services:
       - .env
     volumes:
       - "./volumes/logs/bot:/app/app/logs"
+      - "./volumes/data:/app/app/data"
     command: uv run app/main.py
 
   url-context:
