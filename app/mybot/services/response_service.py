@@ -150,7 +150,7 @@ async def send_streaming_response(
                 logger.warning("No final result")
 
         # 更新为最终结果
-        if final_result and (final_answer := final_result.get(settings.BOT_ANSWER_KEY, '')):
+        if final_result and (final_answer := final_result.get(settings.BOT_OUTPUTS_ANSWER_KEY, '')):
             for parse_mode in settings.pending_parse_mode:
                 try:
                     await context.bot.edit_message_text(

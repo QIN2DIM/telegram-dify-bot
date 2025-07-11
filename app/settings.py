@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Set, Any, Literal, List
+from typing import Set, Any, Literal
 from urllib.request import getproxies
 
 import dotenv
@@ -53,7 +53,12 @@ class Settings(BaseSettings):
         description="约束模型的输出格式，默认为 HTML，要求模型用 HTML 表达富文本而非 Markdown。",
     )
 
-    BOT_ANSWER_KEY: str = Field(
+    BOT_OUTPUTS_TYPE_KEY: str = Field(
+        default="type",
+        description="在 Dify Workflow 返回的 outputs 中，哪个字段在区分任务类型。默认为 `type` 字段。",
+    )
+
+    BOT_OUTPUTS_ANSWER_KEY: str = Field(
         default="answer",
         description="在 Dify Workflow 返回的 outputs 中，将哪个字段的值视为用于回复的纯文本答案。默认为 `answer` 字段。",
     )
