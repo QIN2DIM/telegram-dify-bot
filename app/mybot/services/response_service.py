@@ -11,13 +11,11 @@ from typing import AsyncGenerator, Dict, Any
 
 from loguru import logger
 from telegram import Update
-from telegram._utils.defaultvalue import DEFAULT_NONE
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from models import Interaction, TaskType
-
-pending_parse_mode = [ParseMode.MARKDOWN, ParseMode.MARKDOWN_V2, ParseMode.HTML, DEFAULT_NONE]
+from settings import settings
 
 
 async def _send_message(
@@ -28,7 +26,7 @@ async def _send_message(
     log_prefix: str = "",
 ) -> bool:
     """发送消息的辅助函数，优雅降级处理 Markdown 格式错误"""
-    for parse_mode in pending_parse_mode:
+    for parse_mode in settings.pending_parse_mode:
         try:
             await context.bot.send_message(
                 chat_id=chat_id,
@@ -103,7 +101,6 @@ async def send_streaming_response(
         )
 
         final_result: dict | None = None
-        answer_key = "answer"
 
         async for chunk in streaming_generator:
             if not chunk or not isinstance(chunk, dict) or not (event := chunk.get("event")):
@@ -129,6 +126,7 @@ async def send_streaming_response(
                         logger.error(f"Failed to edit node's title: {err}")
             elif event == "agent_log":
                 if agent_data := chunk_data.get("data", {}):
+                    # 适配的 Agent(ReAct) Node 的 agent_log 协议规范
                     action = agent_data.get("action", "")
                     thought = agent_data.get("thought", "")
                     if action and thought:
@@ -152,8 +150,8 @@ async def send_streaming_response(
                 logger.warning("No final result")
 
         # 更新为最终结果
-        if final_result and (final_answer := final_result.get(answer_key, '')):
-            for parse_mode in pending_parse_mode:
+        if final_result and (final_answer := final_result.get(settings.BOT_ANSWER_KEY, '')):
+            for parse_mode in settings.pending_parse_mode:
                 try:
                     await context.bot.edit_message_text(
                         chat_id=chat.id,

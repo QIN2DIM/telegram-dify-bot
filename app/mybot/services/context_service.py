@@ -16,7 +16,9 @@ from mybot.prompts import (
     MENTION_WITH_REPLY_PROMPT_TEMPLATE,
     REPLY_SINGLE_PROMPT_TEMPLATE,
     USER_PREFERENCES_TPL,
+    HTML_STYLE_TPL,
 )
+from settings import settings
 
 
 async def _format_message(message: Message) -> str:
@@ -102,5 +104,9 @@ async def build_message_context(
                 message_context += USER_PREFERENCES_TPL.format(
                     user_preferences=user_preferences
                 ).strip()
+
+    # Guidelines for Adding Telegram HTML Parse Mode
+    if settings.BOT_ANSWER_PARSE_MODE == "HTML":
+        message_context = f"{message_context}\n\n{HTML_STYLE_TPL}".strip()
 
     return message_context.strip()
