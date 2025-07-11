@@ -44,8 +44,8 @@ REPLY_SINGLE_PROMPT_TEMPLATE = """
 </quote_content>
 
 **注意:** 
-1. 区分 quote_content 中的用户名和需要编辑的消息。
-2. quote_content 可能是用户期望处理的消息，也可能只是用户通过 reply 机器人发送的消息来触发机器人响应，你需要根据上下文判断用户的真实意图
+1. 区分 `quote_content` 中的用户名和需要编辑的消息。
+2. `quote_content` 可能是用户期望处理的消息，也可能只是用户通过 reply 机器人发送的消息来触发机器人响应，你需要根据上下文判断用户的真实意图
 """
 
 # REPLY 模式的提示词模板
@@ -75,7 +75,7 @@ USER_PREFERENCES_TPL = """
 MESSAGE_FORMAT_TEMPLATE = "{username}({user_id}) [{timestamp}]\n{message}"
 
 # 消息分隔符
-MESSAGE_SEPARATOR = "\n---\n"
+MESSAGE_SEPARATOR = "\n" + "--" * 30 + "\n"
 
 # https://core.telegram.org/bots/api#html-style
 HTML_STYLE_TPL = """
@@ -99,11 +99,15 @@ Please use Telegram-compatible HTML for rich text formatting, instead of Markdow
 [example end]
 
 Please note:
-- You MUST NOT use emoji in your answers.
 - Only the tags mentioned above are currently supported.
-- All `<`, `>` and `&` symbols that are not a part of a tag or an HTML entity must be replaced with the corresponding HTML entities (`<` with `<`, `>` with `>` and `&` with `&`).
-- All numerical HTML entities are supported.
-- The API currently supports only the following named HTML entities: `<`, `>`, `&` and `"`.
+- You MUST NOT use emoji in your answers.
 - Use nested `pre` and `code` tags, to define programming language for `pre` entity.
 - Programming language can't be specified for standalone `code` tags.
+"""
+
+CONTEXT_PART = """
+The following is contextual aid information, not chat information:
+<context>
+{context_part}
+</context>
 """

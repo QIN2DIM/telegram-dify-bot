@@ -24,7 +24,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # 2. Build context for the LLM
     message_context = await context_service.build_message_context(
-        update, context, interaction.task_type
+        update, context, interaction.task_type, interaction
     )
     logger.debug(f"Message context:\n{message_context}")
 

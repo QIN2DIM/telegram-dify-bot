@@ -1,0 +1,8 @@
+---
+description: 使用 context7 读取 python-telegram-api 文档
+globs:
+alwaysApply: true
+---
+# Context7
+
+Call context7 to query the documentation of `/python-telegram-bot/python-telegram-bot`.
