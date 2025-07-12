@@ -6,8 +6,6 @@
 @Desc    : Service for sending responses to Telegram.
 """
 import json
-import re
-import time
 from contextlib import suppress
 from typing import AsyncGenerator, Dict, Any
 
@@ -85,8 +83,6 @@ async def send_streaming_response(
     chat = update.effective_chat
     trigger_message = update.effective_message
     initial_message = None
-
-    ignore_labels = {"tool": {"获取当前时间"}}
 
     try:
         # 创建初始消息
