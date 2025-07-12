@@ -39,6 +39,7 @@ class WorkflowInputs(BaseModel):
     bot_username: str = Field(description="机器人username，在群聊中区分谁是谁")
     message_context: str = Field(description="翻译上下文")
     files: List[WorkflowFileInputBody] | None = Field(default_factory=list)
+    parse_mode: Literal["HTML", "Markdown", "MarkdownV2"] = "HTML"
 
 
 class WorkflowRunPayload(BaseModel):

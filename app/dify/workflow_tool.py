@@ -10,6 +10,7 @@ from typing import List
 
 from dify import DifyWorkflowClient
 from dify.models import WorkflowRunPayload, WorkflowInputs, WorkflowCompletionResponse
+from settings import settings
 
 
 async def run_blocking_dify_workflow(
@@ -20,7 +21,11 @@ async def run_blocking_dify_workflow(
 ) -> WorkflowCompletionResponse:
     client = DifyWorkflowClient()
 
-    inputs = WorkflowInputs(bot_username=bot_username, message_context=message_context)
+    inputs = WorkflowInputs(
+        bot_username=bot_username,
+        message_context=message_context,
+        parse_mode=settings.BOT_ANSWER_PARSE_MODE,
+    )
     payload = WorkflowRunPayload(inputs=inputs, user=from_user, response_mode="blocking")
 
     return await client.run(payload=payload, with_files=with_files)
@@ -33,7 +38,11 @@ async def run_streaming_dify_workflow(
     with_files: Path | List[Path] | None = None,
 ):
     client = DifyWorkflowClient()
-    inputs = WorkflowInputs(bot_username=bot_username, message_context=message_context)
+    inputs = WorkflowInputs(
+        bot_username=bot_username,
+        message_context=message_context,
+        parse_mode=settings.BOT_ANSWER_PARSE_MODE,
+    )
     payload = WorkflowRunPayload(inputs=inputs, user=from_user, response_mode="streaming")
 
     return client.streaming(payload=payload, with_files=with_files)

@@ -6,6 +6,7 @@
 @Desc    :
 """
 import json
+import random
 import time
 import uuid
 from pathlib import Path
@@ -15,7 +16,6 @@ from loguru import logger
 from telegram import Message, Bot
 
 from settings import DATA_DIR
-import random
 
 
 def storage_messages_dataset(chat_type: str, effective_message: Message) -> None:
