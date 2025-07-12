@@ -23,7 +23,6 @@ async def _send_message(
     chat_id: int,
     text: str,
     reply_to_message_id: int | None = None,
-    log_prefix: str = "",
 ) -> bool:
     """发送消息的辅助函数，优雅降级处理 Markdown 格式错误"""
     for parse_mode in settings.pending_parse_mode:
@@ -58,11 +57,7 @@ async def send_standard_response(
     if interaction.task_type in [TaskType.MENTION, TaskType.MENTION_WITH_REPLY, TaskType.REPLAY]:
         # 优先直接回复
         sent = await _send_message(
-            context,
-            chat_id,
-            result_text,
-            reply_to_message_id=trigger_message.message_id,
-            log_prefix="Direct reply",
+            context, chat_id, result_text, reply_to_message_id=trigger_message.message_id
         )
         if sent:
             return
@@ -72,10 +67,10 @@ async def send_standard_response(
         if trigger_message.from_user:
             user_mention = trigger_message.from_user.mention_html()
         final_text = f"{user_mention}\n\n{result_text}"
-        await _send_message(context, chat_id, final_text, log_prefix="Mention reply")
+        await _send_message(context, chat_id, final_text)
 
     elif interaction.task_type == TaskType.AUTO:
-        await _send_message(context, chat_id, result_text, log_prefix="Auto reply")
+        await _send_message(context, chat_id, result_text)
 
 
 async def send_streaming_response(

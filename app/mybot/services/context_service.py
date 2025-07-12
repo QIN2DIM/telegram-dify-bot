@@ -16,7 +16,6 @@ from mybot.prompts import (
     MENTION_MESSAGE_FORMAT_TEMPLATE,
     MENTION_WITH_REPLY_PROMPT_TEMPLATE,
     REPLY_SINGLE_PROMPT_TEMPLATE,
-    USER_PREFERENCES_TPL,
     CONTEXT_PART,
     REPLAYED_FORMAT_TEMPLATE,
 )
@@ -47,14 +46,14 @@ def _format_entities_info(entities_info: Dict[str, List[Dict]]) -> str:
             formatted_entities.append(f"电话: {entity['text']}")
         elif entity["type"] == "email":
             formatted_entities.append(f"邮箱: {entity['text']}")
-        elif entity["type"] == "bold":
-            formatted_entities.append(f"粗体: {entity['text']}")
-        elif entity["type"] == "italic":
-            formatted_entities.append(f"斜体: {entity['text']}")
-        elif entity["type"] == "code":
-            formatted_entities.append(f"代码: {entity['text']}")
-        elif entity["type"] == "pre":
-            formatted_entities.append(f"代码块: {entity['text']}")
+        # elif entity["type"] == "bold":
+        #     formatted_entities.append(f"粗体: {entity['text']}")
+        # elif entity["type"] == "italic":
+        #     formatted_entities.append(f"斜体: {entity['text']}")
+        # elif entity["type"] == "code":
+        #     formatted_entities.append(f"代码: {entity['text']}")
+        # elif entity["type"] == "pre":
+        #     formatted_entities.append(f"代码块: {entity['text']}")
 
     # 处理caption实体
     for entity in entities_info.get("caption_entities", []):
@@ -164,15 +163,12 @@ async def _format_message(message: Message, tpl: Literal["mention", "replay"]) -
     ).strip()
 
 
-async def _get_reply_mode_context(
-    chat, user_message: Message, bot_message: Message, user_id: int, bot
-) -> tuple[str, str]:
+async def _get_reply_mode_context(bot_message: Message) -> str:
     """获取 REPLY 模式的上下文消息和用户偏好消息"""
     history_messages = ""
     if bot_message:
         history_messages = await _format_message(bot_message, tpl="replay")
-    user_preferences = ""
-    return history_messages, user_preferences
+    return history_messages
 
 
 async def build_message_context(
@@ -246,13 +242,7 @@ async def build_message_context(
             message_context += f"\n\n{part_}"
 
     elif task_type == TaskType.REPLAY and trigger_message.reply_to_message:
-        history_messages, user_preferences = await _get_reply_mode_context(
-            update.effective_chat,
-            trigger_message,
-            trigger_message.reply_to_message,
-            trigger_message.from_user.id if trigger_message.from_user else 0,
-            context.bot,
-        )
+        history_messages = await _get_reply_mode_context(trigger_message.reply_to_message)
 
         # 添加回复信息
         if interaction and interaction.reply_info:
@@ -264,10 +254,6 @@ async def build_message_context(
             message_context = REPLY_SINGLE_PROMPT_TEMPLATE.format(
                 user_query=message_text, history_messages=history_messages
             ).strip()
-            if user_preferences:
-                message_context += USER_PREFERENCES_TPL.format(
-                    user_preferences=user_preferences
-                ).strip()
 
         # 添加当前消息的上下文信息
         if context_parts:

@@ -91,7 +91,6 @@ class Settings(BaseSettings):
         # 开发环境下默认使用阻塞模式
         if self.ENABLE_DEV_MODE:
             self.RESPONSE_MODE = "blocking"
-            logger.warning("🪄 开发模式已启动")
 
     def get_default_application(self) -> Application:
         if proxy_url := getproxies().get("http"):
