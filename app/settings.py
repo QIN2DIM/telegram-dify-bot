@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from typing import Set, Any, Literal
 from urllib.request import getproxies
@@ -63,6 +64,15 @@ class Settings(BaseSettings):
         description="在 Dify Workflow 返回的 outputs 中，将哪个字段的值视为用于回复的纯文本答案。默认为 `answer` 字段。",
     )
 
+    ENABLE_DEV_MODE: bool = Field(
+        default=False,
+        description="是否为开发模式，开发模式下会 MOCK 模型调用请求，立即响应模版信息。",
+    )
+
+    DEV_MODE_MOCKED_TEMPLATE: str = Field(
+        default="<b>in the dev mode!</b>", description="当开发模式开启时，将返回该模版作为回复。"
+    )
+
     def model_post_init(self, context: Any, /) -> None:
         try:
             if not self.whitelist and self.TELEGRAM_CHAT_WHITELIST:
@@ -71,6 +81,16 @@ class Settings(BaseSettings):
                 }
         except Exception as err:
             logger.warning(f"解析 TELEGRAM_CHAT_WHITELIST 失败 - {err}")
+
+        # 防呆设置，假设 Linux 作为生产环境部署
+        if "linux" in sys.platform:
+            if self.ENABLE_DEV_MODE:
+                logger.warning("开发模式已自动关闭，请勿在 Linux 上运行开发模式")
+            self.ENABLE_DEV_MODE = False
+
+        # 开发环境下默认使用阻塞模式
+        if self.ENABLE_DEV_MODE:
+            self.RESPONSE_MODE = "blocking"
 
     def get_default_application(self) -> Application:
         if proxy_url := getproxies().get("http"):

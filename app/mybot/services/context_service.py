@@ -9,19 +9,16 @@ from typing import Dict, List, Any
 
 from telegram import Update, Message
 from telegram.ext import ContextTypes
+from typing_extensions import Literal
 
 from models import TaskType, Interaction
 from mybot.prompts import (
-    MESSAGE_FORMAT_TEMPLATE,
-    MENTION_PROMPT_TEMPLATE,
+    MENTION_MESSAGE_FORMAT_TEMPLATE,
     MENTION_WITH_REPLY_PROMPT_TEMPLATE,
     REPLY_SINGLE_PROMPT_TEMPLATE,
-    USER_PREFERENCES_TPL,
-    HTML_STYLE_TPL,
     CONTEXT_PART,
-    MESSAGE_SEPARATOR,
+    REPLAYED_FORMAT_TEMPLATE,
 )
-from settings import settings
 
 
 def _format_entities_info(entities_info: Dict[str, List[Dict]]) -> str:
@@ -49,14 +46,14 @@ def _format_entities_info(entities_info: Dict[str, List[Dict]]) -> str:
             formatted_entities.append(f"电话: {entity['text']}")
         elif entity["type"] == "email":
             formatted_entities.append(f"邮箱: {entity['text']}")
-        elif entity["type"] == "bold":
-            formatted_entities.append(f"粗体: {entity['text']}")
-        elif entity["type"] == "italic":
-            formatted_entities.append(f"斜体: {entity['text']}")
-        elif entity["type"] == "code":
-            formatted_entities.append(f"代码: {entity['text']}")
-        elif entity["type"] == "pre":
-            formatted_entities.append(f"代码块: {entity['text']}")
+        # elif entity["type"] == "bold":
+        #     formatted_entities.append(f"粗体: {entity['text']}")
+        # elif entity["type"] == "italic":
+        #     formatted_entities.append(f"斜体: {entity['text']}")
+        # elif entity["type"] == "code":
+        #     formatted_entities.append(f"代码: {entity['text']}")
+        # elif entity["type"] == "pre":
+        #     formatted_entities.append(f"代码块: {entity['text']}")
 
     # 处理caption实体
     for entity in entities_info.get("caption_entities", []):
@@ -144,42 +141,34 @@ def _format_reply_info(reply_info: Dict[str, Any]) -> str:
     return reply_text.strip()
 
 
-async def _format_message(message: Message) -> str:
+async def _format_message(message: Message, tpl: Literal["mention", "replay"]) -> str:
     """格式化单条消息"""
     username = "Anonymous"
-    user_id = "unknown"
 
     if message.sender_chat:
         username = message.sender_chat.username or message.sender_chat.title or "Channel"
-        user_id = str(message.sender_chat.id)
     elif message.from_user:
         username = message.from_user.username or message.from_user.first_name or "User"
-        user_id = str(message.from_user.id)
 
     timestamp = message.date.strftime("%Y-%m-%d %H:%M:%S")
     text = message.text or message.caption or "[Media]"
 
-    return MESSAGE_FORMAT_TEMPLATE.format(
-        username=username, user_id=user_id, timestamp=timestamp, message=text
-    )
+    if tpl == "mention":
+        return MENTION_MESSAGE_FORMAT_TEMPLATE.format(
+            username=username, timestamp=timestamp, message=text
+        ).strip()
+
+    return REPLAYED_FORMAT_TEMPLATE.format(
+        username=username, timestamp=timestamp, message=text
+    ).strip()
 
 
-async def _get_chat_history_for_mention(
-    chat_id: int, trigger_message_id: int, bot, max_messages: int = 50, max_hours: int = 24
-) -> str:
-    """获取 MENTION 模式的历史消息 (stub)"""
-    return ""
-
-
-async def _get_reply_mode_context(
-    chat, user_message: Message, bot_message: Message, user_id: int, bot
-) -> tuple[str, str]:
+async def _get_reply_mode_context(bot_message: Message) -> str:
     """获取 REPLY 模式的上下文消息和用户偏好消息"""
     history_messages = ""
     if bot_message:
-        history_messages = await _format_message(bot_message)
-    user_preferences = ""
-    return history_messages, user_preferences
+        history_messages = await _format_message(bot_message, tpl="replay")
+    return history_messages
 
 
 async def build_message_context(
@@ -202,9 +191,9 @@ async def build_message_context(
     # 添加用户信息
     if interaction and interaction.user_info:
         user_info = interaction.user_info
-        # context_parts.append(
-        #     f"用户信息: {user_info.get('display_name', 'Unknown')} (@{user_info.get('username', 'N/A')}, ID: {user_info.get('id', 'N/A')})"
-        # )
+        context_parts.append(
+            f"用户信息: {user_info.get('display_name', 'Unknown')} (@{user_info.get('username', 'N/A')}, ID: {user_info.get('id', 'N/A')})"
+        )
         if user_info.get('language_code'):
             context_parts.append(f"用户语言: {user_info['language_code']}")
 
@@ -222,22 +211,14 @@ async def build_message_context(
 
     # 处理不同的任务类型
     if task_type == TaskType.MENTION:
-        history_messages = await _get_chat_history_for_mention(
-            update.effective_chat.id, trigger_message.message_id, context.bot
-        )
-        user_query = await _format_message(trigger_message)
+        user_query = await _format_message(trigger_message, tpl="mention")
 
         # 添加上下文信息
         if context_parts:
             part_ = CONTEXT_PART.format(context_part="\n".join(context_parts)).strip()
             user_query += "\n\n" + part_
 
-        if history_messages:
-            message_context = MENTION_PROMPT_TEMPLATE.format(
-                user_query=user_query, history_messages=history_messages
-            )
-        else:
-            message_context = user_query
+        message_context = user_query
 
     elif task_type == TaskType.MENTION_WITH_REPLY and trigger_message.reply_to_message:
         reply_text = (
@@ -261,13 +242,7 @@ async def build_message_context(
             message_context += f"\n\n{part_}"
 
     elif task_type == TaskType.REPLAY and trigger_message.reply_to_message:
-        history_messages, user_preferences = await _get_reply_mode_context(
-            update.effective_chat,
-            trigger_message,
-            trigger_message.reply_to_message,
-            trigger_message.from_user.id if trigger_message.from_user else 0,
-            context.bot,
-        )
+        history_messages = await _get_reply_mode_context(trigger_message.reply_to_message)
 
         # 添加回复信息
         if interaction and interaction.reply_info:
@@ -279,10 +254,6 @@ async def build_message_context(
             message_context = REPLY_SINGLE_PROMPT_TEMPLATE.format(
                 user_query=message_text, history_messages=history_messages
             ).strip()
-            if user_preferences:
-                message_context += USER_PREFERENCES_TPL.format(
-                    user_preferences=user_preferences
-                ).strip()
 
         # 添加当前消息的上下文信息
         if context_parts:
@@ -293,9 +264,5 @@ async def build_message_context(
         # 对于其他任务类型，直接添加上下文信息
         if context_parts:
             message_context += "\n\n" + "\n".join(context_parts)
-
-    # Guidelines for Adding Telegram HTML Parse Mode
-    if settings.BOT_ANSWER_PARSE_MODE == "HTML":
-        message_context = f"{message_context}\n{MESSAGE_SEPARATOR}{HTML_STYLE_TPL.strip()}".strip()
 
     return message_context.strip()

@@ -7,16 +7,21 @@
 """
 import json
 from contextlib import suppress
-from typing import AsyncGenerator, Dict, Any, List, Optional
 from pathlib import Path
+from typing import AsyncGenerator, Dict, Any, List, Optional
+
 from loguru import logger
 
 from dify.workflow_tool import run_blocking_dify_workflow, run_streaming_dify_workflow
+from settings import settings
 
 
 async def invoke_model_blocking(
     bot_username: str, message_context: str, from_user: str, photo_paths: Optional[List[Path]]
 ) -> str:
+    if settings.ENABLE_DEV_MODE:
+        return settings.DEV_MODE_MOCKED_TEMPLATE
+
     """调用 Dify 并以阻塞方式获取结果。"""
     result = await run_blocking_dify_workflow(
         bot_username=bot_username,
