@@ -6,6 +6,8 @@
 @Desc    : Service for sending responses to Telegram.
 """
 import json
+import re
+import time
 from contextlib import suppress
 from typing import AsyncGenerator, Dict, Any
 
@@ -103,18 +105,23 @@ async def send_streaming_response(
 
             chunk_data = chunk.get("data", {})
             node_type = chunk_data.get("node_type", "")
+            node_title = chunk_data.get("title", "")
 
             if event == "workflow_finished":
                 final_result = chunk_data.get('outputs', {})
                 break
-            elif event in ["node_started"] and node_type in ["llm", "agent"]:
-                if node_title := chunk_data.get("title"):
-                    progress_text = f"<blockquote>{node_title}</blockquote>"
+            elif event in ["node_started"]:
+                key_progress_text = ""
+                if node_type in ["llm", "agent"] and node_title:
+                    key_progress_text = f"<blockquote>{node_title}</blockquote>"
+                elif node_type in ["tool"] and node_title:
+                    key_progress_text = f"<blockquote>✨ 工具使用：{node_title}</blockquote>"
+                if key_progress_text:
                     try:
                         await context.bot.edit_message_text(
                             chat_id=chat.id,
                             message_id=initial_message.message_id,
-                            text=progress_text,
+                            text=key_progress_text,
                             parse_mode=ParseMode.HTML,
                         )
                     except Exception as err:
@@ -125,12 +132,12 @@ async def send_streaming_response(
                     action = agent_data.get("action", "")
                     thought = agent_data.get("thought", "")
                     if action and thought:
-                        progress_text = f"<blockquote>ReAct: {action}</blockquote>\n\n{thought}"
+                        agent_log = f"<blockquote>ReAct: {action}</blockquote>\n\n{thought}"
                         try:
                             await context.bot.edit_message_text(
                                 chat_id=chat.id,
                                 message_id=initial_message.message_id,
-                                text=progress_text,
+                                text=agent_log,
                                 parse_mode=ParseMode.HTML,
                             )
                         except Exception as err:
