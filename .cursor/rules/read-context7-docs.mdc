@@ -1,7 +1,7 @@
 ---
 description: 使用 context7 读取 python-telegram-api 文档
 globs:
-alwaysApply: true
+alwaysApply: false
 ---
 # Context7
 

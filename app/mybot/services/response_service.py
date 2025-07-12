@@ -86,6 +86,8 @@ async def send_streaming_response(
     trigger_message = update.effective_message
     initial_message = None
 
+    ignore_labels = {"tool": {"获取当前时间"}}
+
     try:
         # 创建初始消息
         initial_text = "🤔 Planning..."
@@ -106,6 +108,7 @@ async def send_streaming_response(
             chunk_data = chunk.get("data", {})
             node_type = chunk_data.get("node_type", "")
             node_title = chunk_data.get("title", "")
+            node_index = chunk_data.get("index", 0)
 
             if event == "workflow_finished":
                 final_result = chunk_data.get('outputs', {})
@@ -115,7 +118,9 @@ async def send_streaming_response(
                 if node_type in ["llm", "agent"] and node_title:
                     key_progress_text = f"<blockquote>{node_title}</blockquote>"
                 elif node_type in ["tool"] and node_title:
-                    key_progress_text = f"<blockquote>✨ 工具使用：{node_title}</blockquote>"
+                    # bypass flood
+                    if node_index > 3:
+                        key_progress_text = f"<blockquote>✨ 工具使用：{node_title}</blockquote>"
                 if key_progress_text:
                     try:
                         await context.bot.edit_message_text(
