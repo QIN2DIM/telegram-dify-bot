@@ -15,7 +15,7 @@ from telegram import Update
 from telegram.ext import CommandHandler, MessageHandler, filters
 
 from mybot.common import cleanup_old_photos
-from mybot.handlers import command_handler
+from mybot.handlers.command_handler import start_command, help_command, zlib_command
 from mybot.handlers.message_handler import handle_message
 from settings import settings, LOG_DIR
 from utils import init_log
@@ -45,9 +45,9 @@ def main() -> None:
     application = settings.get_default_application()
 
     # on different commands - answer in Telegram
-    application.add_handler(CommandHandler("start", command_handler.start))
-    application.add_handler(CommandHandler("help", command_handler.help_command))
-    application.add_handler(CommandHandler("zlib", command_handler.zlib))
+    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("zlib", zlib_command))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))

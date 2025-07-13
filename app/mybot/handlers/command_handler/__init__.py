@@ -5,8 +5,8 @@
 @GitHub  : https://github.com/QIN2DIM
 @Desc    :
 """
-from .start_ import start
-from .help_ import help_command
-from .zlib_ import zlib
+from .start_command import start_command
+from .help_command import help_command
+from .zlib_command import zlib_command
 
-__all__ = ["start", "help_command", "zlib"]
+__all__ = ["start_command", "help_command", "zlib_command"]

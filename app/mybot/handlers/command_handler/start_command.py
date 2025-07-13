@@ -16,7 +16,7 @@ START_TPL = """
 """
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     bot_username = context.bot.username
     answer_text = START_TPL.format(username=bot_username).strip()

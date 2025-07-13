@@ -16,7 +16,7 @@ from loguru import logger
 from telegram import ReactionTypeEmoji
 
 
-async def zlib(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def zlib_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """获取 zlib 访问链接"""
 
     # 获取用户输入的查询参数
