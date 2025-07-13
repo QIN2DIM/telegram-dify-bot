@@ -36,24 +36,24 @@ services:
       DATABASE_URL: "${DATABASE_URL:-postgresql://postgres:WdA25SmrLmFkGPcg@db:5432/telegram_dify_bot}"
     command: uv run app/main.py
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
     networks:
       - app-network
 
-  triggers:
+  telegram-bot-triggers:
     image: ghcr.io/qin2dim/telegram-dify-bot:latest
     restart: always
-    container_name: telegram-dify-bot
+    container_name: telegram-bot-triggers
     env_file:
       - .env
     volumes:
-      - "./volumes/timer/logs:/app/app/logs"
+      - "./volumes/telegram-bot-triggers/logs:/app/app/logs"
     environment:
       DATABASE_URL: "${DATABASE_URL:-postgresql://postgres:WdA25SmrLmFkGPcg@db:5432/telegram_dify_bot}"
     command: uv run app/deploy.py
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
     networks:
       - app-network
