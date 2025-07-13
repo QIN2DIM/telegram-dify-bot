@@ -36,6 +36,14 @@ class Settings(BaseSettings):
         description="用于连接 Dify Workflow 的 API_KEY。请注意该项目仅适配 Workflow 类型 Application（非 Chatflow）。",
     )
 
+    SAFE_ZLIBRARY_WIKI_URL: str = Field(default="https://en.wikipedia.org/wiki/Z-Library")
+
+    # 数据库配置
+    DATABASE_URL: str = Field(
+        default="postgresql://postgres:YHMovFEM82o4Ys6n@localhost:27429/telegram_dify_bot",
+        description="PostgreSQL 数据库连接 URL",
+    )
+
     TELEGRAM_CHAT_WHITELIST: str = Field(
         default="", description="允许的聊天 ID，可以同时约束 channel，group，private，supergroup。"
     )

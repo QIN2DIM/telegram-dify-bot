@@ -5,12 +5,16 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "apscheduler>=3.11.0",
     "httpx>=0.28.1",
     "httpx-sse>=0.4.1",
     "loguru>=0.7.3",
     "openai>=1.93.0",
+    "psycopg2-binary>=2.9.10",
     "pydantic-settings>=2.10.1",
     "python-telegram-bot[all]>=22.2",
+    "sqlalchemy>=2.0.41",
+    "sqlalchemy-utils>=0.41.2",
 ]
 
 [tool.black]
@@ -22,5 +26,10 @@ exclude = "_archive|.venv|docs/.*\\.ipynb"
 [dependency-groups]
 dev = [
     "black>=25.1.0",
+    "ipykernel>=6.29.5",
+    "ipywidgets>=8.1.7",
+    "jupyterlab-language-pack-zh-cn>=4.4.post0",
+    "notebook>=7.4.4",
+    "pip>=25.1.1",
     "ruff>=0.12.2",
 ]
