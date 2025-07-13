@@ -5,22 +5,31 @@
 @GitHub  : https://github.com/QIN2DIM
 @Desc    :
 """
-from pathlib import Path
 
-from telegram import Update, ForceReply
+from loguru import logger
+from telegram import ReactionTypeEmoji
+from telegram import Update
 from telegram.ext import ContextTypes
 
 from triggers.zlib_access_points import get_zlib_search_url
 
-from loguru import logger
-from telegram import ReactionTypeEmoji
+
+def _extract_search_query(args: list) -> str:
+    """从用户输入中提取真正的检索词，过滤掉 mention entity"""
+    if not args:
+        return ""
+    
+    # 过滤掉 mention entity（以 @ 开头的词）
+    filtered_args = [arg for arg in args if not arg.startswith("@")]
+    
+    return " ".join(filtered_args).strip()
 
 
 async def zlib_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """获取 zlib 访问链接"""
 
-    # 获取用户输入的查询参数
-    query = " ".join(context.args) if context.args else ""
+    # 获取用户输入的查询参数，过滤掉 mention entity
+    query = _extract_search_query(context.args)
     logger.debug(f"Invoke Zlib: {query}")
 
     # 尝试获取有效的消息和聊天信息
@@ -58,7 +67,7 @@ async def zlib_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await context.bot.set_message_reaction(
                 chat_id=chat.id,
                 message_id=message.message_id,
-                reaction=[ReactionTypeEmoji(emoji="🪄")],
+                reaction=[ReactionTypeEmoji(emoji="👻")],
             )
         except Exception as reaction_error:
             logger.debug(f"无法设置消息反应: {reaction_error}")
@@ -84,11 +93,7 @@ async def zlib_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 💡 <i>提示：请稍后再试或联系管理员</i>"""
 
-        # 发送回复消息，如果用户存在则 mention 用户
-        if user:
-            mention = f"@{user.username}" if user.username else user.first_name
-            reply_text = f"{mention}\n\n{reply_text}"
-
+        # 发送回复消息，直接回复无需 mention 用户
         await context.bot.send_message(
             chat_id=chat.id,
             text=reply_text,
@@ -116,11 +121,7 @@ async def zlib_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 💡 <i>提示：请稍后再试或联系管理员</i>"""
 
-        # 发送错误消息，如果用户存在则 mention 用户
-        if user:
-            mention = f"@{user.username}" if user.username else user.first_name
-            reply_text = f"{mention}\n\n{reply_text}"
-
+        # 发送错误消息，直接回复无需 mention 用户
         try:
             await context.bot.send_message(
                 chat_id=chat.id,
