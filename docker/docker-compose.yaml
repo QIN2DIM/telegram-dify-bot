@@ -51,7 +51,7 @@ services:
       - "./volumes/timer/logs:/app/app/logs"
     environment:
       DATABASE_URL: "${DATABASE_URL:-postgresql://postgres:WdA25SmrLmFkGPcg@db:5432/telegram_dify_bot}"
-    command: uv run app/main.py
+    command: uv run app/deploy.py
     depends_on:
       postgres:
         condition: service_healthy
