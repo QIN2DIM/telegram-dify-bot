@@ -6,6 +6,8 @@
 @Desc    :
 """
 import json
+import signal
+import sys
 from contextlib import suppress
 
 from loguru import logger
@@ -45,11 +47,18 @@ def main() -> None:
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", command_handler.start))
     application.add_handler(CommandHandler("help", command_handler.help_command))
-    application.add_handler(CommandHandler("auto", command_handler.auto))
-    application.add_handler(CommandHandler("pause", command_handler.pause))
+    application.add_handler(CommandHandler("zlib", command_handler.zlib))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))
+
+    # Setting up a graceful shutdown
+    def shutdown_handler(signum, frame):
+        logger.info("Receiving a shutdown signal that is stopping the scheduler...")
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, shutdown_handler)
+    signal.signal(signal.SIGTERM, shutdown_handler)
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling(allowed_updates=Update.ALL_TYPES)

@@ -19,7 +19,6 @@ from mybot.common import (
     get_hello_reply,
     get_image_mention_prompt,
 )
-from mybot.handlers.command_handler import auto_translation_enabled_chats
 from settings import settings
 
 
@@ -289,7 +288,8 @@ async def pre_interactivity(
     with suppress(Exception):
         storage_messages_dataset(chat.type, trigger_message)
 
-    is_auto_mode = chat.id in auto_translation_enabled_chats
+    # TODO: 弃用自动翻译功能
+    is_auto_mode = False
 
     task_type = _determine_task_type(
         chat, trigger_message, context.bot, is_auto_trigger=is_auto_mode

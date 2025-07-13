@@ -9,6 +9,11 @@ services:
       - "./volumes/telegram-bot/logs:/app/app/logs"
       - "./volumes/telegram-bot/data:/app/app/data"
     command: uv run app/main.py
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
 
   url-context:
     image: ech0sec/test123:latest
@@ -27,3 +32,36 @@ services:
       all_proxy:
     entrypoint: [ "/usr/bin/tini", "--" ]
     command: xvfb-run --auto-servernum --server-num=1 --server-args='-screen 0, 1920x1080x24' uv run app/main.py
+    networks:
+      - app-network
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: always
+    container_name: postgres-vector
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-telegram_dify_bot}"
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-YHMovFEM82o4Ys6n}"
+      PGDATA: /var/lib/postgresql/data/pgdata
+      TZ: Asia/Shanghai
+#    ports:
+#      - "${POSTGRES_PORT:-27429}:5432"
+    volumes:
+      - "./volumes/postgres_data:/var/lib/postgresql/data"
+      - "./volumes/postgres/logs:/var/log/postgresql"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-telegram_bot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - app-network
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  app-network:
+    driver: bridge
+    name: telegram-bot-network
