@@ -14,14 +14,12 @@ from telegram.ext import ContextTypes
 from triggers.zlib_access_points import get_zlib_search_url, get_zlib_search_url_with_info
 
 publication_tpl = """
-🐦 <b>社交网络</b>
+<b>社交网络</b>
 • Twitter: https://x.com/z_lib_official
 
-🔗 <b>相关链接</b>
+<b>相关链接</b>
 • Wikipedia: https://en.wikipedia.org/wiki/Z-Library
 • Reddit: https://www.reddit.com/r/zlibrary
-
-💡 <i>提示：请稍后再试或联系管理员</i>
 """
 
 
