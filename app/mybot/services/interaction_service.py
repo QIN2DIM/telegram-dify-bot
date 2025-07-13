@@ -251,8 +251,9 @@ def _determine_task_type(
     if chat.id not in settings.whitelist:
         return None
 
-    if message.from_user.is_bot:
-        pass
+    # 避免处理机器人自己发送的消息，防止循环回复
+    if message.from_user.is_bot and message.from_user.username == bot.username:
+        return None
 
     if message.reply_to_message:
         reply_user = message.reply_to_message.from_user

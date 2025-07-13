@@ -64,6 +64,10 @@ class Settings(BaseSettings):
         description="在 Dify Workflow 返回的 outputs 中，将哪个字段的值视为用于回复的纯文本答案。默认为 `answer` 字段。",
     )
 
+    BOT_OUTPUTS_EXTRAS_KEY: str = Field(
+        default="extras", description="在 Dify Workflow 输出的 outputs 中，作为额外数据的字段。"
+    )
+
     ENABLE_DEV_MODE: bool = Field(
         default=False,
         description="是否为开发模式，开发模式下会 MOCK 模型调用请求，立即响应模版信息。",

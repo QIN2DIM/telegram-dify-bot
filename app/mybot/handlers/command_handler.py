@@ -50,7 +50,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 <blockquote>创建一个引用块，通常带有垂直线标识。</blockquote>
 """
-
     await update.message.reply_html(test_html)
 
 

@@ -10,10 +10,11 @@ from contextlib import suppress
 from typing import AsyncGenerator, Dict, Any
 
 from loguru import logger
-from telegram import Update
+from telegram import Update, InputMediaPhoto
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+from dify.models import AnswerType
 from models import Interaction, TaskType
 from settings import settings
 
@@ -45,6 +46,76 @@ async def _send_message(
     except Exception as e2:
         logger.error(f"Failed to send message: {e2}")
         return False
+
+
+async def _send_photo_with_caption(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
+    photo_url: str,
+    caption: str,
+    reply_to_message_id: int | None = None,
+) -> bool:
+    """发送带标题的图片消息"""
+    for parse_mode in settings.pending_parse_mode:
+        try:
+            await context.bot.send_photo(
+                chat_id=chat_id,
+                photo=photo_url,
+                caption=caption,
+                reply_to_message_id=reply_to_message_id,
+                parse_mode=parse_mode,
+            )
+            return True
+        except Exception as err:
+            logger.error(f"Failed to send photo with caption({parse_mode}): {err}")
+
+    try:
+        await context.bot.send_photo(
+            chat_id=chat_id,
+            photo=photo_url,
+            caption=caption,
+            reply_to_message_id=reply_to_message_id,
+        )
+        return True
+    except Exception as e2:
+        logger.error(f"Failed to send photo: {e2}")
+        return False
+
+
+async def _send_media_group_with_caption(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
+    photo_urls: list[str],
+    caption: str,
+    reply_to_message_id: int | None = None,
+) -> bool:
+    """发送多张图片+文字的媒体组消息"""
+    if not photo_urls:
+        return False
+
+    # 构造媒体组：第一张图片包含文字，其他图片不包含文字
+
+    for parse_mode in settings.pending_parse_mode:
+        try:
+            media_group = []
+            for i, photo_url in enumerate(photo_urls):
+                if i == 0:
+                    # 第一张图片包含完整的文字说明
+                    media_group.append(
+                        InputMediaPhoto(media=photo_url, caption=caption, parse_mode=parse_mode)
+                    )
+                else:
+                    # 其他图片不包含文字
+                    media_group.append(InputMediaPhoto(media=photo_url))
+
+            await context.bot.send_media_group(
+                chat_id=chat_id, media=media_group, reply_to_message_id=reply_to_message_id
+            )
+            return True
+        except Exception as err:
+            logger.error(f"Failed to send media group({parse_mode}): {err}")
+
+    return False
 
 
 async def send_standard_response(
@@ -153,7 +224,11 @@ async def send_streaming_response(
                 logger.warning("No final result")
 
         # 更新为最终结果
+        final_answer_message_id = None
         if final_result and (final_answer := final_result.get(settings.BOT_OUTPUTS_ANSWER_KEY, '')):
+            final_type = final_result.get(settings.BOT_OUTPUTS_TYPE_KEY, "")
+
+            # 更新初始消息为最终答案
             for parse_mode in settings.pending_parse_mode:
                 try:
                     await context.bot.edit_message_text(
@@ -162,9 +237,43 @@ async def send_streaming_response(
                         text=final_answer,
                         parse_mode=parse_mode,
                     )
+                    # 记录最终答案消息的 ID，用于后续街景图片引用
+                    final_answer_message_id = initial_message.message_id
                     break
                 except Exception as err:
                     logger.error(f"Failed to send final message({parse_mode}): {err}")
+
+            # 如果是地理位置识别任务且有图片，发送额外的街景图片作为补充
+            extras = final_result.get(settings.BOT_OUTPUTS_EXTRAS_KEY, {})
+            photo_links = extras.get("photo_links", [])
+            place_name = extras.get("place_name", "")
+            caption = f"<code>{place_name.strip()}</code>" if place_name else "Street View"
+            if final_type == AnswerType.GEOLOCATION_IDENTIFICATION and photo_links:
+                # 确定街景图片引用的消息 ID：优先引用机器人自己的最终答案消息，没有的话再引用用户消息
+                street_view_reply_id = None
+                if interaction.task_type != TaskType.AUTO:
+                    # 优先引用机器人自己发送的最终答案消息
+                    street_view_reply_id = final_answer_message_id or trigger_message.message_id
+                
+                # 发送街景图片作为补充信息
+                if len(photo_links) > 1:
+                    # 多张图片：使用 send_media_group
+                    await _send_media_group_with_caption(
+                        context,
+                        chat.id,
+                        photo_links,
+                        caption,
+                        reply_to_message_id=street_view_reply_id,
+                    )
+                else:
+                    # 单张图片：使用 send_photo
+                    await _send_photo_with_caption(
+                        context,
+                        chat.id,
+                        photo_links[0],
+                        caption,
+                        reply_to_message_id=street_view_reply_id,
+                    )
 
         else:
             await context.bot.edit_message_text(
