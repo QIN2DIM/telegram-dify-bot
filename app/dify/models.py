@@ -67,15 +67,12 @@ class WorkflowLogsQuery(BaseModel):
 
 
 class AnswerType(str, Enum):
-    FULLTEXT_TRANSLATION = "翻译与文本编辑"
-    GENERAL_QA = "通用问答与指令"
     WEB_SEARCH = "联网搜索与时事问答"
-
-    TABLE_RECOGNITION = "table_recognition"
-    TEXT_RECOGNITION_OCR = "text_recognition_ocr"
-    GEOLOCATION_IDENTIFICATION = "geolocation_identification"
-    IMAGE_TRANSLATION = "image_translation"
-    GENERAL_QA_MODAL = "general_qa"
+    FULLTEXT_TRANSLATION = "翻译与文本编辑"
+    DATA_SCIENCE = "科学计算"
+    URL_CONTEXT = "外链上下文问答"
+    GEOLOCATION_IDENTIFICATION = "地理位置识别"
+    GENERAL_QA = "通用问答与指令"
 
 
 WORKFLOW_RUN_OUTPUTS_TYPE = Union[str, AnswerType]
@@ -84,6 +81,7 @@ WORKFLOW_RUN_OUTPUTS_TYPE = Union[str, AnswerType]
 class WorkflowCompletionOutputs(BaseModel):
     type: WORKFLOW_RUN_OUTPUTS_TYPE | None = Field(default=None, description="任务类型")
     answer: str | None = Field(default=None, description="处理结果")
+    extras: Any | None = Field(default=None, description="扩展数据")
 
 
 class WorkflowCompletionData(BaseModel):
