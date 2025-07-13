@@ -68,6 +68,13 @@ class Settings(BaseSettings):
         default="extras", description="在 Dify Workflow 输出的 outputs 中，作为额外数据的字段。"
     )
 
+    # 新增：HTTP 请求超时配置
+    HTTP_REQUEST_TIMEOUT: float = Field(
+        default=75.0,
+        description="HTTP 请求超时时间（秒），用于 Telegram API 调用。默认 75 秒。"
+        "该值在接口层的默认值为 5 秒，此处调高该值，支持机器人响应一些提及较大的全模态媒体组，例如：文档和音视频",
+    )
+
     ENABLE_DEV_MODE: bool = Field(
         default=False,
         description="是否为开发模式，开发模式下会 MOCK 模型调用请求，立即响应模版信息。",
@@ -97,19 +104,18 @@ class Settings(BaseSettings):
             self.RESPONSE_MODE = "blocking"
 
     def get_default_application(self) -> Application:
+        _base_builder = (
+            Application.builder()
+            .token(self.TELEGRAM_BOT_API_TOKEN.get_secret_value())
+            .connect_timeout(self.HTTP_REQUEST_TIMEOUT)
+            .write_timeout(self.HTTP_REQUEST_TIMEOUT)
+            .read_timeout(self.HTTP_REQUEST_TIMEOUT)
+        )
         if proxy_url := getproxies().get("http"):
-            print(f"PROXY_URL={proxy_url}")
-            application = (
-                Application.builder()
-                .token(self.TELEGRAM_BOT_API_TOKEN.get_secret_value())
-                .proxy(proxy_url)
-                .get_updates_proxy(proxy_url)
-                .build()
-            )
+            logger.success(f"使用代理: {proxy_url}")
+            application = _base_builder.proxy(proxy_url).get_updates_proxy(proxy_url).build()
         else:
-            application = (
-                Application.builder().token(self.TELEGRAM_BOT_API_TOKEN.get_secret_value()).build()
-            )
+            application = _base_builder.build()
 
         return application
 
