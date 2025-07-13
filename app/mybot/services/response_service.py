@@ -224,6 +224,7 @@ async def send_streaming_response(
                 logger.warning("No final result")
 
         # 更新为最终结果
+        final_answer_message_id = None
         if final_result and (final_answer := final_result.get(settings.BOT_OUTPUTS_ANSWER_KEY, '')):
             final_type = final_result.get(settings.BOT_OUTPUTS_TYPE_KEY, "")
 
@@ -236,6 +237,8 @@ async def send_streaming_response(
                         text=final_answer,
                         parse_mode=parse_mode,
                     )
+                    # 记录最终答案消息的 ID，用于后续街景图片引用
+                    final_answer_message_id = initial_message.message_id
                     break
                 except Exception as err:
                     logger.error(f"Failed to send final message({parse_mode}): {err}")
@@ -246,6 +249,12 @@ async def send_streaming_response(
             place_name = extras.get("place_name", "")
             caption = f"<code>{place_name.strip()}</code>" if place_name else "Street View"
             if final_type == AnswerType.GEOLOCATION_IDENTIFICATION and photo_links:
+                # 确定街景图片引用的消息 ID：优先引用机器人自己的最终答案消息，没有的话再引用用户消息
+                street_view_reply_id = None
+                if interaction.task_type != TaskType.AUTO:
+                    # 优先引用机器人自己发送的最终答案消息
+                    street_view_reply_id = final_answer_message_id or trigger_message.message_id
+                
                 # 发送街景图片作为补充信息
                 if len(photo_links) > 1:
                     # 多张图片：使用 send_media_group
@@ -254,11 +263,7 @@ async def send_streaming_response(
                         chat.id,
                         photo_links,
                         caption,
-                        reply_to_message_id=(
-                            trigger_message.message_id
-                            if interaction.task_type != TaskType.AUTO
-                            else None
-                        ),
+                        reply_to_message_id=street_view_reply_id,
                     )
                 else:
                     # 单张图片：使用 send_photo
@@ -267,11 +272,7 @@ async def send_streaming_response(
                         chat.id,
                         photo_links[0],
                         caption,
-                        reply_to_message_id=(
-                            trigger_message.message_id
-                            if interaction.task_type != TaskType.AUTO
-                            else None
-                        ),
+                        reply_to_message_id=street_view_reply_id,
                     )
 
         else:
