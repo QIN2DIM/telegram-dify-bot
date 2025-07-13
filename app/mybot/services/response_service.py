@@ -111,7 +111,7 @@ async def _send_media_group_with_caption(
                 media_group.append(InputMediaPhoto(media=photo_url))
 
         await context.bot.send_media_group(
-            chat_id=chat_id, media=media_group, reply_to_message_id=reply_to_message_id
+            chat_id=chat_id, media=media_group[:9], reply_to_message_id=reply_to_message_id
         )
         return True
     except Exception as err:
