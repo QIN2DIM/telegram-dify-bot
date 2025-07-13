@@ -96,9 +96,7 @@ async def zlib_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 update_time = url_info["update_time"]
                 # 格式化时间显示
                 time_str = update_time.strftime("%Y-%m-%d %H:%M:%S UTC")
-                reply_text = (
-                    f"📚 Z-Library 访问链接:\n\n{url_info['url']}\n\n🕒 链接更新时间: {time_str}"
-                )
+                reply_text = f"🕒 Last updated: {time_str}\n📚 Access point: {url_info['url']}"
             else:
                 reply_text = (
                     f"❌ 无法获取 Z-Library 链接，请尝试以下方式：\n\n{publication_tpl.strip()}"
