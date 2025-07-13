@@ -69,3 +69,31 @@ CONTEXT_PART = """
 {context_part}
 </context>
 """
+
+# 自动翻译提示词模板
+AUTO_TRANSLATION_PROMPT_TEMPLATE = """
+请将以下{detected_language}文本翻译为{target_languages}：
+
+<original_text>
+{original_text}
+</original_text>
+
+<user_info>
+用户: {username} (ID: {user_id})
+时间: {timestamp}
+</user_info>
+
+要求：
+1. 保持原文的语气和风格
+2. 如果包含专业术语，请准确翻译
+3. 对于俚语或习语，请提供合适的对应表达
+4. 翻译结果请按以下格式输出：
+
+**英文翻译：**
+{english_translation}
+
+**中文翻译：**
+{chinese_translation}
+
+注意：请直接回复翻译结果，不要添加其他说明。
+"""

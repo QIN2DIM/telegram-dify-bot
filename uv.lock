@@ -935,6 +935,15 @@ wheels = [
 ]
 
 [[package]]
+name = "langdetect"
+version = "1.0.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0e/72/a3add0e4eec4eb9e2569554f7c70f4a3c27712f40e3284d483e88094cc0e/langdetect-1.0.9.tar.gz", hash = "sha256:cbc1fef89f8d062739774bd51eda3da3274006b3661d199c2655f6b3f6d605a0", size = 981474 }
+
+[[package]]
 name = "loguru"
 version = "0.7.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1790,6 +1799,7 @@ dependencies = [
     { name = "apscheduler" },
     { name = "httpx" },
     { name = "httpx-sse" },
+    { name = "langdetect" },
     { name = "loguru" },
     { name = "openai" },
     { name = "psycopg2-binary" },
@@ -1815,6 +1825,7 @@ requires-dist = [
     { name = "apscheduler", specifier = ">=3.11.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "httpx-sse", specifier = ">=0.4.1" },
+    { name = "langdetect", specifier = ">=1.0.9" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "openai", specifier = ">=1.93.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },

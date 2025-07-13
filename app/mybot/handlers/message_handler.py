@@ -11,12 +11,17 @@ from telegram.ext import ContextTypes
 
 from mybot.services import interaction_service, context_service, dify_service, response_service
 from settings import settings
+from triggers.auto_translation import process_auto_translation
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Orchestrates the bot's response to a new message.
     """
+    # 检查是否需要进行自动翻译
+    if await process_auto_translation(update, context):
+        return
+
     # 1. Determine task and perform pre-interaction
     interaction = await interaction_service.pre_interactivity(update, context)
     if not interaction:

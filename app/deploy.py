@@ -41,7 +41,7 @@ async def run_zlib_update_job():
 async def run_zlib_update_job_with_scheduler(scheduler):
     """运行 zlib 更新任务并显示下次运行时间"""
     await run_zlib_update_job()
-    
+
     # 获取下次运行时间
     job = scheduler.get_job('zlib_update_job')
     if job and job.next_run_time:
@@ -81,7 +81,7 @@ async def main():
 
     # 启动调度器
     scheduler.start()
-    
+
     # 获取任务的下次运行时间
     job = scheduler.get_job('zlib_update_job')
     if job and job.next_run_time:

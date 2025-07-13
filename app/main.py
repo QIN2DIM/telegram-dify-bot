@@ -15,10 +15,19 @@ from telegram import Update, BotCommand
 from telegram.ext import CommandHandler, MessageHandler, filters
 
 from mybot.common import cleanup_old_photos
-from mybot.handlers.command_handler import start_command, help_command, zlib_command
+from mybot.handlers.command_handler import (
+    start_command,
+    help_command,
+    zlib_command,
+    auto_translation_command,
+)
 from mybot.handlers.message_handler import handle_message
 from settings import settings, LOG_DIR
 from utils import init_log
+
+# 导入数据库初始化函数
+from triggers.auto_translation.crud import init_database as init_auto_translation_db
+from triggers.zlib_access_points.crud import init_database as init_zlib_db
 
 init_log(
     runtime=LOG_DIR.joinpath("runtime.log"),
@@ -27,12 +36,30 @@ init_log(
 )
 
 
+def init_all_databases():
+    """初始化所有数据库表"""
+    logger.info("开始初始化数据库...")
+
+    try:
+        # 初始化自动翻译模块数据库
+        init_auto_translation_db()
+
+        # 初始化zlib模块数据库
+        init_zlib_db()
+
+        logger.success("所有数据库表初始化完成")
+    except Exception as e:
+        logger.error(f"数据库初始化失败: {e}")
+        raise
+
+
 async def setup_bot_commands(application):
     """设置机器人的命令菜单"""
     commands = [
         # BotCommand("start", "开始使用机器人"),
         # BotCommand("help", "获取帮助信息"),
-        BotCommand("zlib", "获取 Z-Library 搜索链接")
+        BotCommand("zlib", "获取 Z-Library 搜索链接"),
+        BotCommand("auto_translation", "自动翻译功能管理"),
     ]
 
     try:
@@ -52,6 +79,9 @@ def main() -> None:
     if settings.ENABLE_DEV_MODE:
         logger.warning("🪄 开发模式已启动")
 
+    # 初始化数据库
+    init_all_databases()
+
     # 定期清理旧的下载图片（每次重启时都尝试清理）
     with suppress(Exception):
         cleanup_old_photos(max_age_hours=24)
@@ -66,6 +96,7 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("zlib", zlib_command))
+    application.add_handler(CommandHandler("auto_translation", auto_translation_command))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))
