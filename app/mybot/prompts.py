@@ -72,28 +72,16 @@ CONTEXT_PART = """
 
 # 自动翻译提示词模板
 AUTO_TRANSLATION_PROMPT_TEMPLATE = """
-请将以下{detected_language}文本翻译为{target_languages}：
+Translate the text inside the `<original_text>` tags into each language listed in `{target_languages}`.
 
 <original_text>
 {original_text}
 </original_text>
 
-<user_info>
-用户: {username} (ID: {user_id})
-时间: {timestamp}
-</user_info>
-
-要求：
-1. 保持原文的语气和风格
-2. 如果包含专业术语，请准确翻译
-3. 对于俚语或习语，请提供合适的对应表达
-4. 翻译结果请按以下格式输出：
-
-**英文翻译：**
-{english_translation}
-
-**中文翻译：**
-{chinese_translation}
-
-注意：请直接回复翻译结果，不要添加其他说明。
+Guidelines:
+1. **You must** preserve the original tone, voice, and nuance in every translation.  
+2. **You must** translate technical terms precisely and use them consistently across all languages.  
+3. **You must** convert idioms or colloquialisms into culturally appropriate equivalents for each target language.  
+4. **You must** present each translation in its own, clearly-labeled block.  
+5. **You must** return **only** the translations, without any additional commentary or explanations.
 """

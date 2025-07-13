@@ -12,6 +12,7 @@ from .node import (
     get_auto_translation_status,
     process_auto_translation,
     check_should_auto_translate,
+    start_auto_shutdown_task,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "get_auto_translation_status",
     "process_auto_translation",
     "check_should_auto_translate",
+    "start_auto_shutdown_task",
 ]

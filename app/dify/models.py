@@ -40,6 +40,7 @@ class WorkflowInputs(BaseModel):
     message_context: str = Field(description="翻译上下文")
     files: List[WorkflowFileInputBody] | None = Field(default_factory=list)
     parse_mode: Literal["HTML", "Markdown", "MarkdownV2"] = "HTML"
+    forced_command: Literal["AutoTranslation"] | None = None
 
 
 class WorkflowRunPayload(BaseModel):
@@ -80,7 +81,9 @@ WORKFLOW_RUN_OUTPUTS_TYPE = Union[str, AnswerType]
 
 class WorkflowCompletionOutputs(BaseModel):
     type: WORKFLOW_RUN_OUTPUTS_TYPE | None = Field(default=None, description="任务类型")
-    answer: str | None = Field(default=None, description="处理结果")
+    answer: str | dict | None = Field(
+        default=None, description="处理结果，仅当payload存在特殊指令时，answer 为 dict。"
+    )
     extras: Any | None = Field(default=None, description="扩展数据")
 
 

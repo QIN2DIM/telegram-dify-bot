@@ -28,6 +28,7 @@ from utils import init_log
 # 导入数据库初始化函数
 from triggers.auto_translation.crud import init_database as init_auto_translation_db
 from triggers.zlib_access_points.crud import init_database as init_zlib_db
+from triggers.auto_translation import start_auto_shutdown_task
 
 init_log(
     runtime=LOG_DIR.joinpath("runtime.log"),

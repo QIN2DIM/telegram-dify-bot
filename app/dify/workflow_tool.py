@@ -18,6 +18,8 @@ async def run_blocking_dify_workflow(
     message_context: str,
     from_user: str,
     with_files: Path | List[Path] | None = None,
+    enable_auto_translation: bool | None = False,
+    **kwargs,
 ) -> WorkflowCompletionResponse:
     client = DifyWorkflowClient()
 
@@ -25,6 +27,7 @@ async def run_blocking_dify_workflow(
         bot_username=bot_username,
         message_context=message_context,
         parse_mode=settings.BOT_ANSWER_PARSE_MODE,
+        forced_command="AutoTranslation" if enable_auto_translation else None,
     )
     payload = WorkflowRunPayload(inputs=inputs, user=from_user, response_mode="blocking")
 
@@ -36,6 +39,7 @@ async def run_streaming_dify_workflow(
     message_context: str,
     from_user: str,
     with_files: Path | List[Path] | None = None,
+    **kwargs,
 ):
     client = DifyWorkflowClient()
     inputs = WorkflowInputs(

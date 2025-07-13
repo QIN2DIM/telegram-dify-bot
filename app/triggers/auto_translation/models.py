@@ -20,12 +20,12 @@ class AutoTranslationSettings(Base):
     id = Column(Integer, primary_key=True, index=True)
     chat_id = Column(BigInteger, nullable=False, unique=True)
     enabled = Column(Boolean, default=False, nullable=False)
-    source_languages = Column(String, default="vi,ru", nullable=False)  # 逗号分隔的语言代码
-    target_languages = Column(String, default="en,zh", nullable=False)  # 逗号分隔的语言代码
+    languages = Column(String, default="zh,en,ru", nullable=False)
+    last_message_time = Column(DateTime, default=datetime.now(UTC), nullable=False)
     created_at = Column(DateTime, default=datetime.now(UTC), nullable=False)
     updated_at = Column(
         DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC), nullable=False
     )
 
     def __repr__(self):
-        return f"<AutoTranslationSettings(chat_id={self.chat_id}, enabled={self.enabled}, source_languages='{self.source_languages}', target_languages='{self.target_languages}')>"
+        return f"<AutoTranslationSettings(chat_id={self.chat_id}, enabled={self.enabled}, languages='{self.languages}')>"
