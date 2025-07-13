@@ -82,7 +82,7 @@ async def zlib_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             # 有搜索查询时，使用原有方法
             search_url = get_zlib_search_url(query)
             if search_url:
-                reply_text = f"🔍 Z-Library 搜索链接（关键词: {query}）:\n\n{search_url}"
+                reply_text = f'<b>Z-Library</b> <a href="{search_url}">👉 {query}</a>'
             else:
                 reply_text = (
                     f"❌ 无法获取 Z-Library 链接，请尝试以下方式：\n\n{publication_tpl.strip()}"
@@ -94,7 +94,9 @@ async def zlib_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 update_time = url_info["update_time"]
                 # 格式化时间显示
                 time_str = update_time.strftime("%Y-%m-%d %H:%M:%S UTC")
-                reply_text = f"🕒 Last updated: {time_str}\n📚 Access point: {url_info['url']}"
+                reply_text = (
+                    f"🕒 Last updated: <code>{time_str}</code>\n📚 Access point: {url_info['url']}"
+                )
             else:
                 reply_text = (
                     f"❌ 无法获取 Z-Library 链接，请尝试以下方式：\n\n{publication_tpl.strip()}"

@@ -38,6 +38,19 @@ async def run_zlib_update_job():
         logger.error(f"运行 zlib 更新任务时发生错误: {e}")
 
 
+async def run_zlib_update_job_with_scheduler(scheduler):
+    """运行 zlib 更新任务并显示下次运行时间"""
+    await run_zlib_update_job()
+    
+    # 获取下次运行时间
+    job = scheduler.get_job('zlib_update_job')
+    if job and job.next_run_time:
+        next_run_time = job.next_run_time.strftime('%Y-%m-%d %H:%M:%S')
+        logger.info(f"下次运行时间: {next_run_time}")
+    else:
+        logger.info("无法获取下次运行时间")
+
+
 async def main():
     """主函数 - 初始化并启动定时任务调度器"""
     logger.info("正在启动定时任务...")
@@ -52,10 +65,14 @@ async def main():
     # 创建异步调度器
     scheduler = AsyncIOScheduler(timezone='Asia/Shanghai')
 
-    # 添加定时任务：每天凌晨04:00运行
+    # 创建包装函数，用于在任务完成后显示下次运行时间
+    async def scheduled_zlib_update_job():
+        await run_zlib_update_job_with_scheduler(scheduler)
+
+    # 添加定时任务：每小时运行1次
     scheduler.add_job(
-        run_zlib_update_job,
-        trigger=CronTrigger(hour=4, minute=0, timezone='Asia/Shanghai'),
+        scheduled_zlib_update_job,
+        trigger=CronTrigger(minute=0, timezone='Asia/Shanghai'),
         id='zlib_update_job',
         name='ZLib 更新任务',
         max_instances=1,  # 防止任务重叠
@@ -64,11 +81,18 @@ async def main():
 
     # 启动调度器
     scheduler.start()
-    logger.success("定时任务调度器已启动，将在每天凌晨04:00（东八区）运行")
+    
+    # 获取任务的下次运行时间
+    job = scheduler.get_job('zlib_update_job')
+    if job and job.next_run_time:
+        next_run_time = job.next_run_time.strftime('%Y-%m-%d %H:%M:%S')
+        logger.success(f"定时任务调度器已启动，下次运行时间: {next_run_time}")
+    else:
+        logger.success("定时任务调度器已启动")
 
     # 立即运行一次任务
     logger.info("首次运行 zlib 更新任务")
-    await run_zlib_update_job()
+    await run_zlib_update_job_with_scheduler(scheduler)
 
     # 设置优雅关闭
     def shutdown_handler(signum, frame):

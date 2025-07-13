@@ -5,7 +5,7 @@
 @GitHub  : https://github.com/QIN2DIM
 @Desc    : 数据库模型和初始化
 """
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional
 
 from loguru import logger
@@ -23,7 +23,7 @@ class ZlibAccessPoint(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     useful_link = Column(String, nullable=False)
-    update_time = Column(DateTime, default=datetime.utcnow, nullable=False)
+    update_time = Column(DateTime, default=datetime.now(UTC), nullable=False)
 
     def __repr__(self):
         return f"<ZlibAccessPoint(id={self.id}, useful_link='{self.useful_link}', update_time='{self.update_time}')>"
