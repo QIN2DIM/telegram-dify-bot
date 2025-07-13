@@ -11,8 +11,8 @@ import httpx
 from bs4 import BeautifulSoup
 from loguru import logger
 
-from triggers.zlib_access_points.crud import get_latest_zlib_access_point, save_zlib_access_point
 from settings import settings
+from triggers.zlib_access_points.crud import get_latest_zlib_access_point, save_zlib_access_point
 
 
 def get_zlib_useful_links():
@@ -46,6 +46,18 @@ def get_latest_zlib_link_from_db() -> str | None:
         return None
     except Exception as e:
         logger.error(f"从数据库获取 zlib 链接失败: {e}")
+        return None
+
+
+def get_latest_zlib_access_point_info() -> dict | None:
+    """从数据库获取最新的 zlib 访问点信息（包含链接和更新时间）"""
+    try:
+        access_point = get_latest_zlib_access_point()
+        if access_point:
+            return {"link": access_point.useful_link, "update_time": access_point.update_time}
+        return None
+    except Exception as e:
+        logger.error(f"从数据库获取 zlib 访问点信息失败: {e}")
         return None
 
 
@@ -101,4 +113,22 @@ def get_zlib_search_url(query: str | None = "") -> str | None:
     best_link = get_latest_zlib_link_from_db()
     if best_link:
         return parse_input_params(best_link, query)
+    return None
+
+
+@logger.catch
+def get_zlib_search_url_with_info(query: str | None = "") -> dict | None:
+    """获取 zlib 搜索链接和更新时间信息（仅从数据库读取）
+
+    Args:
+        query: 搜索查询字符串
+
+    Returns:
+        包含链接和更新时间的字典或 None
+        格式: {"url": "链接", "update_time": "更新时间"}
+    """
+    access_point_info = get_latest_zlib_access_point_info()
+    if access_point_info:
+        search_url = parse_input_params(access_point_info["link"], query)
+        return {"url": search_url, "update_time": access_point_info["update_time"]}
     return None

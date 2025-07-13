@@ -11,7 +11,7 @@ import sys
 from contextlib import suppress
 
 from loguru import logger
-from telegram import Update
+from telegram import Update, BotCommand
 from telegram.ext import CommandHandler, MessageHandler, filters
 
 from mybot.common import cleanup_old_photos
@@ -25,6 +25,21 @@ init_log(
     error=LOG_DIR.joinpath("error.log"),
     serialize=LOG_DIR.joinpath("serialize.log"),
 )
+
+
+async def setup_bot_commands(application):
+    """设置机器人的命令菜单"""
+    commands = [
+        # BotCommand("start", "开始使用机器人"),
+        # BotCommand("help", "获取帮助信息"),
+        BotCommand("zlib", "获取 Z-Library 搜索链接")
+    ]
+
+    try:
+        await application.bot.set_my_commands(commands)
+        logger.success(f"已设置机器人命令菜单: {[f'/{cmd.command}' for cmd in commands]}")
+    except Exception as e:
+        logger.error(f"设置机器人命令菜单失败: {e}")
 
 
 def main() -> None:
@@ -43,6 +58,9 @@ def main() -> None:
 
     # Create the Application and pass it your bot's token.
     application = settings.get_default_application()
+
+    # 设置机器人命令菜单
+    application.post_init = setup_bot_commands
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start_command))

@@ -5,6 +5,6 @@
 @GitHub  : https://github.com/QIN2DIM
 @Desc    :
 """
-from .node import update_zlib_links, get_zlib_search_url
+from .node import update_zlib_links, get_zlib_search_url, get_zlib_search_url_with_info
 
-__all__ = ["update_zlib_links", "get_zlib_search_url"]
+__all__ = ["update_zlib_links", "get_zlib_search_url", "get_zlib_search_url_with_info"]

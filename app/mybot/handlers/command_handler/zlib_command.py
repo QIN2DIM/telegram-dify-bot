@@ -11,17 +11,28 @@ from telegram import ReactionTypeEmoji
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from triggers.zlib_access_points import get_zlib_search_url
+from triggers.zlib_access_points import get_zlib_search_url, get_zlib_search_url_with_info
+
+publication_tpl = """
+🐦 <b>社交网络</b>
+• Twitter: https://x.com/z_lib_official
+
+🔗 <b>相关链接</b>
+• Wikipedia: https://en.wikipedia.org/wiki/Z-Library
+• Reddit: https://www.reddit.com/r/zlibrary
+
+💡 <i>提示：请稍后再试或联系管理员</i>
+"""
 
 
 def _extract_search_query(args: list) -> str:
     """从用户输入中提取真正的检索词，过滤掉 mention entity"""
     if not args:
         return ""
-    
+
     # 过滤掉 mention entity（以 @ 开头的词）
     filtered_args = [arg for arg in args if not arg.startswith("@")]
-    
+
     return " ".join(filtered_args).strip()
 
 
@@ -35,16 +46,13 @@ async def zlib_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     # 尝试获取有效的消息和聊天信息
     message = None
     chat = None
-    user = None
 
     if update.message:
         message = update.message
         chat = update.message.chat
-        user = update.message.from_user
     elif update.callback_query:
         message = update.callback_query.message
         chat = update.callback_query.message.chat if update.callback_query.message else None
-        user = update.callback_query.from_user
     elif update.inline_query:
         # 内联查询无法直接回复，记录并返回
         logger.info(f"zlib 命令收到内联查询: {update.inline_query.query}")
@@ -54,7 +62,6 @@ async def zlib_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not message or not chat:
         message = update.effective_message
         chat = update.effective_chat
-        user = update.effective_user
 
     # 最后检查是否有有效的回复目标
     if not message or not chat:
@@ -73,25 +80,29 @@ async def zlib_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             logger.debug(f"无法设置消息反应: {reaction_error}")
 
         # 从数据库获取链接
-        search_url = get_zlib_search_url(query)
-
-        if search_url:
-            if query:
+        if query:
+            # 有搜索查询时，使用原有方法
+            search_url = get_zlib_search_url(query)
+            if search_url:
                 reply_text = f"🔍 Z-Library 搜索链接（关键词: {query}）:\n\n{search_url}"
             else:
-                reply_text = f"📚 Z-Library 访问链接:\n\n{search_url}"
+                reply_text = (
+                    f"❌ 无法获取 Z-Library 链接，请尝试以下方式：\n\n{publication_tpl.strip()}"
+                )
         else:
-            # 使用默认回复模板
-            reply_text = """❌ 无法获取 Z-Library 链接，请尝试以下方式：
-
-🐦 <b>社交网络</b>
-• Twitter: https://x.com/z_lib_official
-
-🔗 <b>相关链接</b>
-• Wikipedia: https://en.wikipedia.org/wiki/Z-Library
-• Reddit: https://www.reddit.com/r/zlibrary
-
-💡 <i>提示：请稍后再试或联系管理员</i>"""
+            # 没有搜索查询时，获取带时间信息的链接
+            url_info = get_zlib_search_url_with_info(query)
+            if url_info:
+                update_time = url_info["update_time"]
+                # 格式化时间显示
+                time_str = update_time.strftime("%Y-%m-%d %H:%M:%S UTC")
+                reply_text = (
+                    f"📚 Z-Library 访问链接:\n\n{url_info['url']}\n\n🕒 链接更新时间: {time_str}"
+                )
+            else:
+                reply_text = (
+                    f"❌ 无法获取 Z-Library 链接，请尝试以下方式：\n\n{publication_tpl.strip()}"
+                )
 
         # 发送回复消息，直接回复无需 mention 用户
         await context.bot.send_message(
@@ -110,16 +121,7 @@ async def zlib_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             logger.warning("zlib 命令异常处理：无法找到有效的回复目标")
             return
 
-        reply_text = """❌ 服务暂时不可用，请尝试以下方式：
-
-🐦 <b>社交网络</b>
-• Twitter: https://x.com/z_lib_official
-
-🔗 <b>相关链接</b>
-• Wikipedia: https://en.wikipedia.org/wiki/Z-Library
-• Reddit: https://www.reddit.com/r/zlibrary
-
-💡 <i>提示：请稍后再试或联系管理员</i>"""
+        reply_text = f"❌ 服务暂时不可用，请尝试以下方式：\n\n{publication_tpl.strip()}"
 
         # 发送错误消息，直接回复无需 mention 用户
         try:
