@@ -93,27 +93,29 @@ async def _send_media_group_with_caption(
     if not photo_urls:
         return False
 
+    parse_mode = ParseMode.HTML
+
     # 构造媒体组：第一张图片包含文字，其他图片不包含文字
+    media_group = []
 
-    for parse_mode in settings.pending_parse_mode:
-        try:
-            media_group = []
-            for i, photo_url in enumerate(photo_urls):
-                if i == 0:
-                    # 第一张图片包含完整的文字说明
-                    media_group.append(
-                        InputMediaPhoto(media=photo_url, caption=caption, parse_mode=parse_mode)
-                    )
-                else:
-                    # 其他图片不包含文字
-                    media_group.append(InputMediaPhoto(media=photo_url))
+    try:
 
-            await context.bot.send_media_group(
-                chat_id=chat_id, media=media_group, reply_to_message_id=reply_to_message_id
-            )
-            return True
-        except Exception as err:
-            logger.error(f"Failed to send media group({parse_mode}): {err}")
+        for i, photo_url in enumerate(photo_urls):
+            if i == 0:
+                # 第一张图片包含完整的文字说明
+                media_group.append(
+                    InputMediaPhoto(media=photo_url, caption=caption, parse_mode=parse_mode)
+                )
+            else:
+                # 其他图片不包含文字
+                media_group.append(InputMediaPhoto(media=photo_url))
+
+        await context.bot.send_media_group(
+            chat_id=chat_id, media=media_group, reply_to_message_id=reply_to_message_id
+        )
+        return True
+    except Exception as err:
+        logger.exception(f"Failed to send media group({parse_mode}): {err}")
 
     return False
 
@@ -254,7 +256,7 @@ async def send_streaming_response(
                 if interaction.task_type != TaskType.AUTO:
                     # 优先引用机器人自己发送的最终答案消息
                     street_view_reply_id = final_answer_message_id or trigger_message.message_id
-                
+
                 # 发送街景图片作为补充信息
                 if len(photo_links) > 1:
                     # 多张图片：使用 send_media_group
