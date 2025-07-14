@@ -129,15 +129,23 @@ async def get_auto_translation_status(chat_id: int) -> AutoTranslationResult:
 
 def check_should_auto_translate(chat_id: int, message_text: str) -> bool:
     """检查是否应该进行自动翻译"""
+    logger.debug(f"[自动翻译检查] 检查聊天 {chat_id} 的消息是否需要翻译")
+    
     # 检查是否启用了自动翻译
-    if not is_auto_translation_enabled(chat_id):
+    enabled = is_auto_translation_enabled(chat_id)
+    logger.debug(f"[自动翻译检查] 自动翻译已启用: {enabled}")
+    if not enabled:
         return False
 
     # 获取自动翻译配置
     languages = get_auto_translation_config(chat_id)
+    logger.debug(f"[自动翻译检查] 支持的语言: {languages}")
 
     # 检查消息的语言是否需要翻译
-    return should_translate(message_text, languages)
+    should_translate_result = should_translate(message_text, languages)
+    logger.debug(f"[自动翻译检查] 消息需要翻译: {should_translate_result}")
+    
+    return should_translate_result
 
 
 async def process_auto_translation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -148,23 +156,35 @@ async def process_auto_translation(update: Update, context: ContextTypes.DEFAULT
     """
     chat_id = update.effective_chat.id
     message = update.effective_message
+    
+    # 添加调试日志
+    logger.debug(f"[自动翻译] 收到消息，chat_id: {chat_id}")
+    logger.debug(f"[自动翻译] 消息详情: from_user={message.from_user}, sender_chat={message.sender_chat}")
+    if message.from_user:
+        logger.debug(f"[自动翻译] 发送者信息: is_bot={message.from_user.is_bot}, username={message.from_user.username}, first_name={message.from_user.first_name}")
 
     # 跳过没有文本内容的消息
     if not message or not (message.text or message.caption):
+        logger.debug(f"[自动翻译] 跳过：没有文本内容")
         return False
 
     # 跳过真正的机器人发送的消息
     if message.from_user and is_real_bot(message.from_user):
+        logger.debug(f"[自动翻译] 跳过：识别为真正的机器人")
         return False
 
     # 跳过命令消息
     if message.text and message.text.startswith('/'):
+        logger.debug(f"[自动翻译] 跳过：命令消息")
         return False
 
     # 检查是否需要翻译
     message_text = message.text or message.caption or ""
     if not check_should_auto_translate(chat_id, message_text):
+        logger.debug(f"[自动翻译] 跳过：不需要翻译")
         return False
+
+    logger.info(f"[自动翻译] 开始处理消息: {message_text[:50]}...")
 
     # 更新最后消息时间
     try:
@@ -263,22 +283,48 @@ def is_real_bot(user: User) -> bool:
         bool: 如果是真正的机器人返回 True，否则返回 False
     """
     if not user:
+        logger.debug(f"[机器人检测] 用户为空")
         return False
 
     # 检查用户是否被标记为机器人
     if not user.is_bot:
+        logger.debug(f"[机器人检测] 用户不是机器人: {user.username or user.first_name}")
         return False
+
+    # 添加调试日志
+    logger.debug(f"[机器人检测] 检测机器人用户: is_bot={user.is_bot}, username={user.username}, first_name={user.first_name}, id={user.id}")
 
     # 检查用户名是否以 'bot' 结尾（忽略大小写）
     if user.username and user.username.lower().endswith('bot'):
+        logger.debug(f"[机器人检测] 用户名以'bot'结尾，认为是真正的机器人: {user.username}")
         return True
 
-    # 对于没有用户名的机器人，仍然认为是真正的机器人
+    # 特殊情况：匿名管理员和频道消息
+    # 匿名管理员发言时，Telegram 会显示一个特殊的机器人用户
+    # 这些用户通常：
+    # 1. is_bot = True
+    # 2. username 可能为空或不以 'bot' 结尾
+    # 3. first_name 通常是频道名称或特殊标识
+    
+    # 对于没有用户名的机器人，需要进一步判断
     if not user.username:
+        # 如果用户 ID 是负数（频道/群组），很可能是匿名管理员
+        if user.id < 0:
+            logger.debug(f"[机器人检测] 负数用户ID，可能是匿名管理员: {user.id}")
+            return False
+        
+        # 如果 first_name 包含特定关键词，可能是匿名管理员
+        if user.first_name and any(keyword in user.first_name.lower() for keyword in ['anonymous', 'admin', 'group', 'channel']):
+            logger.debug(f"[机器人检测] first_name包含匿名/管理员关键词，可能是匿名管理员: {user.first_name}")
+            return False
+        
+        # 其他没有用户名的机器人，可能是真正的机器人
+        logger.debug(f"[机器人检测] 没有用户名的机器人，认为是真正的机器人: {user.first_name}")
         return True
 
     # 其他情况，如果 is_bot 为 True 但用户名不以 bot 结尾，
     # 可能是频道或匿名管理员，不认为是真正的机器人
+    logger.debug(f"[机器人检测] 机器人用户名不以'bot'结尾，可能是频道或匿名管理员: {user.username}")
     return False
 
 
