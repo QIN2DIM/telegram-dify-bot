@@ -12,9 +12,9 @@ Bot 端负责处理一切与 Telegram 交互的脏活累活，目标是让用户
 
 很简单，在它能看到的任何地方（白名单群组/私聊），用以下姿势 Q 它：
 
-1.  **直接 @ 它** (`mention`)
-2.  **回复（引用）它发的任何消息** (`reply`)
-3.  **引用用户消息或转发外部消息再 @ 它** (`reply_and_mention`)，让它“围观”并发表看法
+1.  **直接 @ 它** ([`🔗mention`](https://r2-datalake.echosec.top/telegram-dify-bot/invoke-bot-mention-hello-world.mp4))
+2.  **回复（引用）它发的任何消息** ([`🔗reply`](https://r2-datalake.echosec.top/telegram-dify-bot/invoke-bot-reply.mp4))
+3.  **引用用户消息或转发外部消息再 @ 它** ([`🔗reply_and_mention`](https://r2-datalake.echosec.top/telegram-dify-bot/invoke-boke-forward-quote-info.mp4))，让它“围观”并发表看法
 
 ### 人机交互特性（我们解决了哪些痛点）
 

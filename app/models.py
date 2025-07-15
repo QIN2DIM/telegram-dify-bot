@@ -7,7 +7,7 @@
 """
 from enum import Enum
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 
 from pydantic import BaseModel
 
@@ -65,3 +65,11 @@ class Interaction(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+
+
+class AgentStrategy(str, Enum):
+    FUNCTION_CALLING = "function_calling"
+    REACT = "ReAct"
+
+
+AGENT_STRATEGY_TYPE = Union[str, AgentStrategy]

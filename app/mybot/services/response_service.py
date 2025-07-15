@@ -6,6 +6,7 @@
 @Desc    : Service for sending responses to Telegram.
 """
 import json
+import time
 from contextlib import suppress
 from typing import AsyncGenerator, Dict, Any
 
@@ -15,7 +16,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from dify.models import AnswerType
-from models import Interaction, TaskType
+from models import Interaction, TaskType, AGENT_STRATEGY_TYPE, AgentStrategy
 from settings import settings
 
 
@@ -169,6 +170,8 @@ async def send_streaming_response(
         )
 
         final_result: dict | None = None
+        agent_strategy_name: AGENT_STRATEGY_TYPE = ""
+        last_edit_time = time.time()
 
         async for chunk in streaming_generator:
             if not chunk or not isinstance(chunk, dict) or not (event := chunk.get("event")):
@@ -179,11 +182,15 @@ async def send_streaming_response(
             node_title = chunk_data.get("title", "")
             node_index = chunk_data.get("index", 0)
 
+            logger.debug(json.dumps(chunk, indent=2, ensure_ascii=False))
+
             if event == "workflow_finished":
                 final_result = chunk_data.get('outputs', {})
                 break
             elif event in ["node_started"]:
                 key_progress_text = ""
+                if agent_strategy := chunk_data.get("agent_strategy", {}):
+                    agent_strategy_name = agent_strategy.get("name", "")
                 if node_type in ["llm", "agent"] and node_title:
                     key_progress_text = f"<blockquote>{node_title}</blockquote>"
                 elif node_type in ["tool"] and node_title:
@@ -201,21 +208,87 @@ async def send_streaming_response(
                     except Exception as err:
                         logger.error(f"Failed to edit node's title: {err}")
             elif event == "agent_log":
+                _agent_log = ""
+                agent_log_parts = []
+
+                # ReAct 结构化日志
+                thought = ""
+                action = ""
+
+                # function_calling 结构化日志
+                output_text = ""
+                tool_input = []
+                tool_call_name = ""
+                tool_response = ""
+                tool_call_input = {}
+
+                # == 填充模板 == #
                 if agent_data := chunk_data.get("data", {}):
                     # 适配的 Agent(ReAct) Node 的 agent_log 协议规范
-                    action = agent_data.get("action", "")
-                    thought = agent_data.get("thought", "")
-                    if action and thought:
-                        agent_log = f"<blockquote>ReAct: {action}</blockquote>\n\n{thought}"
-                        try:
+                    if agent_strategy_name == AgentStrategy.REACT:
+                        action = agent_data.get("action", agent_data.get("action_name", ""))
+                        agent_data_json = json.dumps(agent_data, indent=2, ensure_ascii=False)
+                        thought = f'<pre><code class="language-json">{agent_data_json}</code></pre>'
+
+                    # 适配 function_calling agent_strategy 协议规范
+                    elif agent_strategy_name == AgentStrategy.FUNCTION_CALLING:
+                        if output_pending := agent_data.get("output"):
+                            if isinstance(output_pending, str):
+                                output_text = output_pending
+                            if isinstance(output_pending, dict):
+                                output_text = output_pending.get("llm_response", "")
+                        tool_input = agent_data.get("tool_input", [])
+                        tool_call_input = agent_data.get("tool_call_input", {})
+                        tool_call_name = agent_data.get("tool_call_name", "")
+                        tool_response = agent_data.get("tool_response", "")
+                elif chunk_data.get("status", "") == "start":
+                    if agent_strategy_name == AgentStrategy.FUNCTION_CALLING:
+                        action = "🤔 Thinking..."
+
+                # == 解析模板 == #
+                if action:
+                    agent_log_parts.append(f"<blockquote>Agent: {action}</blockquote>")
+                if thought:
+                    agent_log_parts.append(thought)
+                if output_text:
+                    agent_log_parts.append(output_text)
+                if tool_input:
+                    for t in tool_input:
+                        if isinstance(t, dict) and "args" in t and "name" in t:
+                            block_language = t.get("args", {}).get("language", "json")
+                            tool_args_content = json.dumps(t["args"], indent=2, ensure_ascii=False)
+                            agent_log_parts.append(f"<blockquote>ToolUse: {t['name']}</blockquote>")
+                            agent_log_parts.append(
+                                f'<pre><code class="language-{block_language}">{tool_args_content}</code></pre>'
+                            )
+                if tool_call_name:
+                    agent_log_parts.append(f"<blockquote>ToolUse: {tool_call_name}</blockquote>")
+                if tool_call_input:
+                    block_language = tool_call_input.get("language", "json")
+                    tool_args = json.dumps(tool_call_input, indent=2, ensure_ascii=False)
+                    agent_log_parts.append(
+                        f'<pre><code class="language-{block_language}">{tool_args}</code></pre>'
+                    )
+                if tool_response:
+                    agent_log_parts.append(
+                        f'<pre><code class="language-json">{tool_response}</code></pre>'
+                    )
+
+                _agent_log = "\n\n".join(agent_log_parts)
+
+                if _agent_log:
+                    try:
+                        now = time.time()
+                        if now - last_edit_time > 1.5:
                             await context.bot.edit_message_text(
                                 chat_id=chat.id,
                                 message_id=initial_message.message_id,
-                                text=agent_log,
+                                text=_agent_log,
                                 parse_mode=ParseMode.HTML,
                             )
-                        except Exception as err:
-                            logger.error(f"Failed to edit agent log: {err}")
+                            last_edit_time = now
+                    except Exception as err:
+                        logger.error(f"Failed to edit agent log: {err}")
 
         # 输出响应日志
         with suppress(Exception):
@@ -243,7 +316,7 @@ async def send_streaming_response(
                     final_answer_message_id = initial_message.message_id
                     break
                 except Exception as err:
-                    logger.error(f"Failed to send final message({parse_mode}): {err}")
+                    logger.exception(f"Failed to send final message({parse_mode}): {err}")
 
             # 如果是地理位置识别任务且有图片，发送额外的街景图片作为补充
             extras = final_result.get(settings.BOT_OUTPUTS_EXTRAS_KEY, {})
@@ -283,7 +356,7 @@ async def send_streaming_response(
             )
 
     except Exception as e:
-        logger.error(f"Streaming response error: {e}")
+        logger.exception(f"Streaming response error: {e}")
         error_message = "抱歉，处理过程中遇到问题，请稍后再试。"
         if initial_message:
             try:
