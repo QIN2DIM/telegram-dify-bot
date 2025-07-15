@@ -65,47 +65,149 @@ def _extract_message_entities(message: Message) -> Dict[str, List[Dict]]:
 
 def _extract_forward_info(message: Message) -> Optional[Dict]:
     """
-    提取转发消息的完整信息
+    提取转发消息的完整信息，包括传统转发和外部回复
     """
-    if not message.forward_origin:
-        return None
+    forward_info = None
 
-    forward_info = {"type": message.forward_origin.type, "date": message.forward_origin.date}
-
-    # 根据不同的转发类型获取具体信息
-    if hasattr(message.forward_origin, 'sender_user'):
-        forward_info["sender_user"] = {
-            "id": message.forward_origin.sender_user.id,
-            "username": message.forward_origin.sender_user.username,
-            "first_name": message.forward_origin.sender_user.first_name,
-            "last_name": message.forward_origin.sender_user.last_name,
-            "is_bot": message.forward_origin.sender_user.is_bot,
-        }
-    elif hasattr(message.forward_origin, 'sender_chat'):
-        forward_info["sender_chat"] = {
-            "id": message.forward_origin.sender_chat.id,
-            "title": message.forward_origin.sender_chat.title,
-            "username": message.forward_origin.sender_chat.username,
-            "type": message.forward_origin.sender_chat.type,
-        }
-    elif hasattr(message.forward_origin, 'chat'):
-        forward_info["chat"] = {
-            "id": message.forward_origin.chat.id,
-            "title": message.forward_origin.chat.title,
-            "username": message.forward_origin.chat.username,
-            "type": message.forward_origin.chat.type,
+    # 处理传统转发消息
+    if message.forward_origin:
+        forward_info = {
+            "type": message.forward_origin.type,
+            "date": message.forward_origin.date,
+            "sender_user": {},
         }
 
-    if hasattr(message.forward_origin, 'message_id'):
-        forward_info["message_id"] = message.forward_origin.message_id
+        # 根据不同的转发类型获取具体信息
+        if hasattr(message.forward_origin, 'sender_user'):
+            forward_info["sender_user"] = {
+                "id": message.forward_origin.sender_user.id,
+                "username": message.forward_origin.sender_user.username,
+                "first_name": message.forward_origin.sender_user.first_name,
+                "last_name": message.forward_origin.sender_user.last_name,
+                "is_bot": message.forward_origin.sender_user.is_bot,
+            }
+        elif hasattr(message.forward_origin, 'sender_chat'):
+            forward_info["sender_chat"] = {
+                "id": message.forward_origin.sender_chat.id,
+                "title": message.forward_origin.sender_chat.title,
+                "username": message.forward_origin.sender_chat.username,
+                "type": message.forward_origin.sender_chat.type,
+            }
+        elif hasattr(message.forward_origin, 'chat'):
+            forward_info["chat"] = {
+                "id": message.forward_origin.chat.id,
+                "title": message.forward_origin.chat.title,
+                "username": message.forward_origin.chat.username,
+                "type": message.forward_origin.chat.type,
+            }
 
-    if hasattr(message.forward_origin, 'sender_user_name'):
-        forward_info["sender_user_name"] = message.forward_origin.sender_user_name
+        if hasattr(message.forward_origin, 'message_id'):
+            forward_info["message_id"] = message.forward_origin.message_id
 
-    if hasattr(message.forward_origin, 'author_signature'):
-        forward_info["author_signature"] = message.forward_origin.author_signature
+        if hasattr(message.forward_origin, 'sender_user_name'):
+            forward_info["sender_user_name"] = message.forward_origin.sender_user_name
+
+        if hasattr(message.forward_origin, 'author_signature'):
+            forward_info["author_signature"] = message.forward_origin.author_signature
+
+    # 处理外部回复（新的引用机制）
+    elif hasattr(message, 'external_reply') and message.external_reply:
+        forward_info = _extract_external_reply_info(message.external_reply)
 
     return forward_info
+
+
+def _extract_external_reply_info(external_reply) -> Dict:
+    """
+    提取外部回复信息
+    """
+    external_info = {
+        "type": "external_reply",
+        "message_id": external_reply.message_id if hasattr(external_reply, 'message_id') else None,
+    }
+
+    # 提取外部聊天信息
+    if hasattr(external_reply, 'chat') and external_reply.chat:
+        external_info["chat"] = {
+            "id": external_reply.chat.id,
+            "title": external_reply.chat.title,
+            "username": external_reply.chat.username,
+            "type": external_reply.chat.type,
+        }
+
+    # 提取原始消息信息
+    if hasattr(external_reply, 'origin') and external_reply.origin:
+        origin = external_reply.origin
+        external_info["origin"] = {
+            "type": origin.type,
+            "date": origin.date if hasattr(origin, 'date') else None,
+        }
+
+        # 根据不同的原始类型获取具体信息
+        if hasattr(origin, 'chat'):
+            external_info["origin"]["chat"] = {
+                "id": origin.chat.id,
+                "title": origin.chat.title,
+                "username": origin.chat.username,
+                "type": origin.chat.type,
+            }
+
+        if hasattr(origin, 'message_id'):
+            external_info["origin"]["message_id"] = origin.message_id
+
+        if hasattr(origin, 'author_signature'):
+            external_info["origin"]["author_signature"] = origin.author_signature
+
+    # 提取链接预览选项
+    if hasattr(external_reply, 'link_preview_options') and external_reply.link_preview_options:
+        link_options = external_reply.link_preview_options
+        external_info["link_preview_options"] = {}
+        if hasattr(link_options, 'url'):
+            external_info["link_preview_options"]["url"] = link_options.url
+
+    return external_info
+
+
+def _extract_quote_info(message: Message) -> Optional[Dict]:
+    """
+    提取引用文本信息
+    """
+    if not hasattr(message, 'quote') or not message.quote:
+        return None
+
+    quote = message.quote
+    quote_info = {
+        "position": quote.position if hasattr(quote, 'position') else None,
+        "text": quote.text if hasattr(quote, 'text') else None,
+        "quote_info": [],
+    }
+
+    # 提取引用中的实体信息
+    if hasattr(quote, 'entities') and quote.entities:
+        quote_info["entities"] = []
+        for entity in quote.entities:
+            entity_dict = {
+                "type": entity.type,
+                "offset": entity.offset,
+                "length": entity.length,
+                "user": {},
+            }
+
+            # 添加实体特定的属性
+            if hasattr(entity, 'url') and entity.url:
+                entity_dict["url"] = entity.url
+            if hasattr(entity, 'user') and entity.user:
+                entity_dict["user"] = {
+                    "id": entity.user.id,
+                    "username": entity.user.username,
+                    "first_name": entity.user.first_name,
+                }
+            if hasattr(entity, 'language') and entity.language:
+                entity_dict["language"] = entity.language
+
+            quote_info["entities"].append(entity_dict)
+
+    return quote_info
 
 
 def _extract_user_info(user: Optional[User]) -> Dict:
@@ -343,6 +445,9 @@ async def pre_interactivity(
     # 提取回复信息
     reply_info = _extract_reply_info(trigger_message)
 
+    # 提取引用信息
+    quote_info = _extract_quote_info(trigger_message)
+
     # Download photos
     photo_paths = None
     if trigger_message.photo:
@@ -371,4 +476,5 @@ async def pre_interactivity(
         forward_info=forward_info,
         reply_info=reply_info,
         chat_info=_extract_chat_info(chat),
+        quote_info=quote_info,
     )

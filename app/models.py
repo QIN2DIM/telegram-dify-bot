@@ -52,13 +52,16 @@ class Interaction(BaseModel):
     """消息中的实体信息，包括链接、mention、hashtag等富文本信息"""
 
     forward_info: Dict[str, Any] | None = None
-    """转发消息的完整信息，包括原始发送者、转发来源等"""
+    """转发消息的完整信息，包括原始发送者、转发来源等，现在也包括外部回复信息"""
 
     reply_info: Dict[str, Any] | None = None
     """回复消息的完整信息，包括被回复消息的内容、发送者、实体等"""
 
     chat_info: Dict[str, Any] | None = None
     """聊天的完整信息，包括聊天类型、标题、权限等"""
+
+    quote_info: Dict[str, Any] | None = None
+    """引用文本信息，包含从外部消息引用的文本内容"""
 
     class Config:
         arbitrary_types_allowed = True
