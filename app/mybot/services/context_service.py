@@ -73,31 +73,96 @@ def _format_entities_info(entities_info: Dict[str, List[Dict]]) -> str:
 
 def _format_forward_info(forward_info: Dict[str, Any]) -> str:
     """
-    格式化转发信息为可读文本
+    格式化转发信息为可读文本，包括传统转发和外部回复
     """
     if not forward_info:
         return ""
 
-    forward_text = f"转发消息类型: {forward_info.get('type', 'unknown')}\n"
-    forward_text += f"转发时间: {forward_info.get('date', '')}\n"
+    forward_type = forward_info.get('type', 'unknown')
+    forward_text = f"转发消息类型: {forward_type}\n"
 
-    if "sender_user" in forward_info:
-        user = forward_info["sender_user"]
-        forward_text += f"原始发送者: {user.get('username', '')} ({user.get('first_name', '')} {user.get('last_name', '')}, ID: {user.get('id', '')})\n"
-    elif "sender_chat" in forward_info:
-        chat = forward_info["sender_chat"]
-        forward_text += f"原始发送频道/群组: {chat.get('title', '')} (@{chat.get('username', '')}, ID: {chat.get('id', '')})\n"
-    elif "chat" in forward_info:
-        chat = forward_info["chat"]
-        forward_text += f"转发来源: {chat.get('title', '')} (@{chat.get('username', '')}, ID: {chat.get('id', '')})\n"
+    # 处理外部回复
+    if forward_type == "external_reply":
+        forward_text += f"外部回复消息ID: {forward_info.get('message_id', 'N/A')}\n"
 
-    if "sender_user_name" in forward_info:
-        forward_text += f"签名: {forward_info['sender_user_name']}\n"
+        # 外部聊天信息
+        if "chat" in forward_info:
+            chat = forward_info["chat"]
+            forward_text += f"引用来源: {chat.get('title', '')} (@{chat.get('username', '')}, ID: {chat.get('id', '')})\n"
 
-    if "author_signature" in forward_info:
-        forward_text += f"作者签名: {forward_info['author_signature']}\n"
+        # 原始消息信息
+        if "origin" in forward_info:
+            origin = forward_info["origin"]
+            forward_text += f"原始消息时间: {origin.get('date', '')}\n"
+            if "chat" in origin:
+                origin_chat = origin["chat"]
+                forward_text += f"原始来源: {origin_chat.get('title', '')} (@{origin_chat.get('username', '')}, ID: {origin_chat.get('id', '')})\n"
+            if "author_signature" in origin:
+                forward_text += f"作者签名: {origin['author_signature']}\n"
+
+        # 链接预览信息
+        if "link_preview_options" in forward_info and "url" in forward_info["link_preview_options"]:
+            forward_text += f"相关链接: {forward_info['link_preview_options']['url']}\n"
+
+    # 处理传统转发
+    else:
+        forward_text += f"转发时间: {forward_info.get('date', '')}\n"
+
+        if "sender_user" in forward_info:
+            user = forward_info["sender_user"]
+            forward_text += f"原始发送者: {user.get('username', '')} ({user.get('first_name', '')} {user.get('last_name', '')}, ID: {user.get('id', '')})\n"
+        elif "sender_chat" in forward_info:
+            chat = forward_info["sender_chat"]
+            forward_text += f"原始发送频道/群组: {chat.get('title', '')} (@{chat.get('username', '')}, ID: {chat.get('id', '')})\n"
+        elif "chat" in forward_info:
+            chat = forward_info["chat"]
+            forward_text += f"转发来源: {chat.get('title', '')} (@{chat.get('username', '')}, ID: {chat.get('id', '')})\n"
+
+        if "sender_user_name" in forward_info:
+            forward_text += f"签名: {forward_info['sender_user_name']}\n"
+
+        if "author_signature" in forward_info:
+            forward_text += f"作者签名: {forward_info['author_signature']}\n"
 
     return forward_text.strip()
+
+
+def _format_quote_info(quote_info: Dict[str, Any]) -> str:
+    """
+    格式化引用信息为可读文本
+    """
+    if not quote_info:
+        return ""
+
+    quote_text = "引用内容:\n"
+
+    # 引用位置
+    if quote_info.get("position") is not None:
+        quote_text += f"引用位置: 第{quote_info['position']}个字符开始\n"
+
+    # 引用文本
+    if quote_info.get("text"):
+        quote_text += f"引用文本: {quote_info['text']}\n"
+
+    # 引用中的实体信息
+    if quote_info.get("entities"):
+        entities_list = []
+        for entity in quote_info["entities"]:
+            if entity["type"] == "url":
+                entities_list.append(f"链接: {entity.get('text', 'N/A')}")
+            elif entity["type"] == "text_link":
+                entities_list.append(
+                    f"链接: {entity.get('text', 'N/A')} -> {entity.get('url', '')}"
+                )
+            elif entity["type"] == "mention":
+                entities_list.append(f"提及: {entity.get('text', 'N/A')}")
+            elif entity["type"] == "hashtag":
+                entities_list.append(f"话题: {entity.get('text', 'N/A')}")
+
+        if entities_list:
+            quote_text += f"引用中的格式信息:\n{chr(10).join(entities_list)}\n"
+
+    return quote_text.strip()
 
 
 def _format_reply_info(reply_info: Dict[str, Any]) -> str:
@@ -208,6 +273,12 @@ async def build_message_context(
         forward_text = _format_forward_info(interaction.forward_info)
         if forward_text:
             context_parts.append(f"转发消息信息:\n{forward_text}")
+
+    # 添加引用信息
+    if interaction and interaction.quote_info:
+        quote_text = _format_quote_info(interaction.quote_info)
+        if quote_text:
+            context_parts.append(quote_text)
 
     # 处理不同的任务类型
     if task_type == TaskType.MENTION:
