@@ -65,11 +65,11 @@ Bot 端负责处理一切与 Telegram 交互的脏活累活，目标是让用户
 1.  **大脑中枢 (意图识别)**：所有请求的第一站。一个灵活、高拓展性的前置节点，负责判断用户“到底想干啥”，然后把请求派发给对应的专才。
 2.  **联网搜索问答**：优化的联网搜索流程，让它能基于最新信息回答你的问题。[🔗](https://r2-datalake.echosec.top/telegram-dify-bot/invoke-bot-web-search.mp4)
 3.  **自动翻译机 (AutoTranslation)**：混合模态翻译能力，不仅能处理文本，还能响应 `/auto-translation` 指令，是 `i18n` 群组的刚需。
-4.  **能跑代码的数科助理 (Agent: DataScience)**：一个内置代码解释器的 Agent，专门处理计算量大的数科问题。
+4.  **能跑代码的数科助理 (Agent: DataScience)**：一个内置代码解释器的 Agent，专门处理计算量大的数科问题。[🔗](https://r2-datalake.echosec.top/telegram-dify-bot/invoke-bot-agent-node.mp4)
 5.  **自带反爬工具的数据矿工 (Agent: DeepMining)**：装备了自研数据挖掘工具，能强行“阅读”指定表网的完整内容，形成对 LLM 友好的上下文，尤其擅长处理有反爬措施的网站。[🔗](https://r2-datalake.echosec.top/telegram-dify-bot/invoke-bot-url-context.mp4)
 6.  **街景猜谜大师 (GeoGuessr)**：一个“图一乐”功能。给它图文线索，它会像真人高手一样，遵循最佳实践，一步步分析画面细节，调用地图工具，最后给出精准的定位和附近的街景。幻觉控制能力较强。[🔗](https://r2-datalake.echosec.top/telegram-dify-bot/invoke-bot-geolocation.mp4)
 7.  **代码助理 (Agent: CodingAssistant)**：一个接入了 `context7` 和 `code-interpreter` 的助手，快速解决文档 QA 和编程问题。
-8.  **兜底的温柔 (GreetingBot)**：作为 `ELSE` 分支存在，专门负责在所有意图都匹配失败时，陪用户尬聊。根据统计，它平均每天要响应 13 次来自用户的 `hello`。
+8.  **兜底的温柔 (GreetingBot)**：作为 `ELSE` 分支存在，专门负责在所有意图都匹配失败时，陪用户尬聊。根据统计，它平均每天要响应 13 次来自用户的 `hello`。[🔗](https://r2-datalake.echosec.top/telegram-dify-bot/invoke-bot-general-qa.png)
 
 ## Memory, yes but...
 
