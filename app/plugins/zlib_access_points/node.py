@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from loguru import logger
 
 from settings import settings
-from triggers.zlib_access_points.crud import get_latest_zlib_access_point, save_zlib_access_point
+from plugins.zlib_access_points.crud import get_latest_zlib_access_point, save_zlib_access_point
 
 
 def get_zlib_useful_links():

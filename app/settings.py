@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 from typing import Set, Any, Literal
 from urllib.request import getproxies
+from uuid import uuid4
 
 import dotenv
 from loguru import logger
@@ -92,6 +93,15 @@ class Settings(BaseSettings):
         default="<b>in the dev mode!</b>", description="当开发模式开启时，将返回该模版作为回复。"
     )
 
+    # Telegraph 配置
+    TELEGRAPH_SHORT_NAME: str = Field(
+        default="", description="Telegraph 账户的短名称，显示在编辑按钮上方"
+    )
+
+    TELEGRAPH_AUTHOR_NAME: str = Field(default="", description="Telegraph 页面的默认作者名称")
+
+    TELEGRAPH_AUTHOR_URL: str = Field(default="", description="Telegraph 页面的默认作者链接")
+
     def model_post_init(self, context: Any, /) -> None:
         try:
             if not self.whitelist and self.TELEGRAM_CHAT_WHITELIST:
@@ -110,6 +120,9 @@ class Settings(BaseSettings):
         # 开发环境下默认使用阻塞模式
         if self.ENABLE_DEV_MODE:
             self.RESPONSE_MODE = "blocking"
+
+        if not self.TELEGRAPH_SHORT_NAME:
+            self.TELEGRAPH_SHORT_NAME = f"{uuid4().hex[:8]}"
 
     def get_default_application(self) -> Application:
         _base_builder = (

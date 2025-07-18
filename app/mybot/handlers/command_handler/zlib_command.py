@@ -11,7 +11,7 @@ from telegram import ReactionTypeEmoji
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from triggers.zlib_access_points import get_zlib_search_url, get_zlib_search_url_with_info
+from plugins.zlib_access_points import get_zlib_search_url, get_zlib_search_url_with_info
 
 publication_tpl = """
 <b>社交网络</b>

@@ -6,15 +6,17 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "apscheduler>=3.11.0",
+    "bs4>=0.0.2",
     "httpx>=0.28.1",
     "httpx-sse>=0.4.1",
     "loguru>=0.7.3",
-    "openai>=1.93.0",
+    "markdown>=3.8.2",
     "psycopg2-binary>=2.9.10",
     "pydantic-settings>=2.10.1",
     "python-telegram-bot[all]>=22.2",
     "sqlalchemy>=2.0.41",
     "sqlalchemy-utils>=0.41.2",
+    "telegraph[aio]>=2.2.0",
 ]
 
 [tool.black]

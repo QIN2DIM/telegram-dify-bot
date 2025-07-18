@@ -14,8 +14,8 @@ from apscheduler.triggers.cron import CronTrigger
 from loguru import logger
 
 from settings import LOG_DIR
-from triggers.zlib_access_points import update_zlib_links
-from triggers.zlib_access_points.crud import init_database
+from plugins.zlib_access_points import update_zlib_links
+from plugins.zlib_access_points.crud import init_database
 from utils import init_log
 
 init_log(
