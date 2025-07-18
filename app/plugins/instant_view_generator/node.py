@@ -307,15 +307,6 @@ class TelegraphInstantViewGenerator:
 
     def _markdown_to_telegraph_nodes(self, markdown_content: str) -> List[Dict[str, Any]]:
         """Convert Markdown content to Telegraph Node format"""
-        # Convert markdown to HTML first with additional extensions for better list handling
-        # Using 'extra' extension which includes:
-        # - Abbreviations
-        # - Attribute Lists
-        # - Definition Lists
-        # - Fenced Code Blocks
-        # - Footnotes
-        # - Tables
-        # - Smart Strong/Emphasis
         html_content = markdown.markdown(
             markdown_content,
             extensions=[
@@ -323,6 +314,9 @@ class TelegraphInstantViewGenerator:
                 'codehilite',  # Code syntax highlighting
                 'toc',  # Table of contents
                 'sane_lists',  # Better list handling with proper nesting
+                "wikilinks",
+                "smarty",
+                "mdx_truly_sane_lists",
             ],
         )
 
