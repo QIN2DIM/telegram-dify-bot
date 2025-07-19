@@ -94,13 +94,17 @@ class Settings(BaseSettings):
     )
 
     # Telegraph 配置
-    TELEGRAPH_SHORT_NAME: str = Field(
-        default="", description="Telegraph 账户的短名称，显示在编辑按钮上方"
+    TELEGRAPH_SHORT_NAME: str | None = Field(
+        default=None, description="Telegraph 账户的短名称，显示在编辑按钮上方"
     )
 
-    TELEGRAPH_AUTHOR_NAME: str = Field(default="", description="Telegraph 页面的默认作者名称")
+    TELEGRAPH_AUTHOR_NAME: str | None = Field(
+        default=None, description="Telegraph 页面的默认作者名称"
+    )
 
-    TELEGRAPH_AUTHOR_URL: str = Field(default="", description="Telegraph 页面的默认作者链接")
+    TELEGRAPH_AUTHOR_URL: str | None = Field(
+        default=None, description="Telegraph 页面的默认作者链接"
+    )
 
     def model_post_init(self, context: Any, /) -> None:
         try:

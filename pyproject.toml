@@ -36,3 +36,16 @@ dev = [
     "pip>=25.1.1",
     "ruff>=0.12.2",
 ]
+
+[project.scripts]
+commit = "app.plugins.commit_message_generator.node:main"
+
+# https://packaging.python.org/en/latest/key_projects/#hatch
+# https://hatch.pypa.io/latest/config/build/#build-system
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+# https://hatch.pypa.io/latest/config/build/#packages
+[tool.hatch.build.targets.wheel]
+packages = ["app/"]

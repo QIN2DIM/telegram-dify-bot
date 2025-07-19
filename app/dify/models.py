@@ -26,6 +26,7 @@ class FilesUploadResponse(BaseModel):
 
 
 FILE_TYPE = Union[str, Literal["document", "image", "audio", "video", "custom"]]
+FORCED_COMMAND_TYPE = Union[str, Literal["Any", "CommitMessageGeneration", "AutoTranslation"]]
 
 
 class WorkflowFileInputBody(BaseModel):
@@ -40,6 +41,7 @@ class WorkflowInputs(BaseModel):
     message_context: str = Field(description="翻译上下文")
     files: List[WorkflowFileInputBody] | None = Field(default_factory=list)
     parse_mode: Literal["HTML", "Markdown", "MarkdownV2"] = "HTML"
+    forced_command: FORCED_COMMAND_TYPE | None = Field(default=None)
 
 
 class WorkflowRunPayload(BaseModel):
@@ -80,7 +82,7 @@ WORKFLOW_RUN_OUTPUTS_TYPE = Union[str, AnswerType]
 
 class WorkflowCompletionOutputs(BaseModel):
     type: WORKFLOW_RUN_OUTPUTS_TYPE | None = Field(default=None, description="任务类型")
-    answer: str | None = Field(default=None, description="处理结果")
+    answer: str | dict | None = Field(default=None, description="处理结果")
     extras: Any | None = Field(default=None, description="扩展数据")
 
 

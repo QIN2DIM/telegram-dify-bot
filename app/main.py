@@ -17,6 +17,7 @@ from telegram.ext import CommandHandler, MessageHandler, filters
 from mybot.common import cleanup_old_photos
 from mybot.handlers.command_handler import start_command, help_command, zlib_command
 from mybot.handlers.message_handler import handle_message
+from plugins import zlib_access_points
 from settings import settings, LOG_DIR
 from utils import init_log
 
@@ -25,6 +26,13 @@ init_log(
     error=LOG_DIR.joinpath("error.log"),
     serialize=LOG_DIR.joinpath("serialize.log"),
 )
+
+
+def init_plugin_storage():
+    drivers = [zlib_access_points]
+    for driver in drivers:
+        with suppress(Exception):
+            driver.init_database()
 
 
 async def setup_bot_commands(application):
@@ -58,6 +66,9 @@ def main() -> None:
 
     # Create the Application and pass it your bot's token.
     application = settings.get_default_application()
+
+    # 初始化数据库状态
+    init_plugin_storage()
 
     # 设置机器人命令菜单
     application.post_init = setup_bot_commands

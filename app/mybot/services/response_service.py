@@ -17,6 +17,7 @@ from telegram.ext import ContextTypes
 
 from dify.models import AnswerType
 from models import Interaction, TaskType, AGENT_STRATEGY_TYPE, AgentStrategy
+from plugins.instant_view_generator.node import create_instant_view
 from settings import settings
 
 
@@ -182,7 +183,7 @@ async def send_streaming_response(
             node_title = chunk_data.get("title", "")
             node_index = chunk_data.get("index", 0)
 
-            logger.debug(json.dumps(chunk, indent=2, ensure_ascii=False))
+            # logger.debug(json.dumps(chunk, indent=2, ensure_ascii=False))
 
             if event == "workflow_finished":
                 final_result = chunk_data.get('outputs', {})
@@ -302,7 +303,27 @@ async def send_streaming_response(
         final_answer_message_id = None
         if final_result and (final_answer := final_result.get(settings.BOT_OUTPUTS_ANSWER_KEY, '')):
             final_type = final_result.get(settings.BOT_OUTPUTS_TYPE_KEY, "")
+            extras = final_result.get(settings.BOT_OUTPUTS_EXTRAS_KEY, {})
 
+            # == RENDER 1: Instant View == #
+            # 期望 instant_view 都使用标准的 Markdown 语法表达，而非 HTML
+            if extras.get("is_instant_view"):
+                try:
+                    response = await create_instant_view(
+                        content=final_answer, input_format="Markdown"
+                    )
+                    if response.success:
+                        await context.bot.edit_message_text(
+                            chat_id=chat.id,
+                            message_id=initial_message.message_id,
+                            parse_mode=ParseMode.HTML,
+                            text=response.instant_view_content.strip(),
+                        )
+                        return
+                except Exception as send_error:
+                    logger.error(f"发送错误回复失败: {send_error}")
+
+            # == RENDER 2: General RichText == #
             # 更新初始消息为最终答案
             for parse_mode in settings.pending_parse_mode:
                 try:
@@ -318,8 +339,8 @@ async def send_streaming_response(
                 except Exception as err:
                     logger.exception(f"Failed to send final message({parse_mode}): {err}")
 
+            # == RENDER 3: Street View Images == #
             # 如果是地理位置识别任务且有图片，发送额外的街景图片作为补充
-            extras = final_result.get(settings.BOT_OUTPUTS_EXTRAS_KEY, {})
             photo_links = extras.get("photo_links", [])
             place_name = extras.get("place_name", "")
             caption = f"<code>{place_name.strip()}</code>" if place_name else "Street View"

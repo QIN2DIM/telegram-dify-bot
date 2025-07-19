@@ -5,17 +5,27 @@
 @GitHub  : https://github.com/QIN2DIM
 @Desc    : Telegraph Instant View Generator based on telegraph[aio]
 """
-import asyncio
 import re
 from pathlib import Path
 from typing import Union, List, Dict, Any, Optional, Literal
 
 import markdown
 from bs4 import BeautifulSoup
+from bs4.element import NavigableString, PageElement, Tag
 from pydantic import BaseModel, Field, ConfigDict
 from telegraph.aio import Telegraph
 
+import sys
+from pathlib import Path
+
 from settings import settings
+
+DEFAULT_TITLE = "INSTANT VIEW"
+
+INSTANT_VIEW_METADATA_TPL = """
+<a href="{url}">👉 {title}</a>
+👾 <code>{author_name}</code>
+"""
 
 
 class TelegraphPageResult(BaseModel):
@@ -43,10 +53,10 @@ class InstantViewRequest(BaseModel):
         description="Content to convert - file path, bytes, or string"
     )
     input_format: Literal["HTML", "Markdown"] = Field(description="Input content format")
-    title: str = Field(description="Page title (1-256 characters)")
-    author_name: Optional[str] = Field(default=None, description="Author name (0-128 characters)")
-    author_url: Optional[str] = Field(default=None, description="Author URL (0-512 characters)")
-    return_content: bool = Field(default=True, description="Whether to return the page content")
+    title: str | None = Field(default=DEFAULT_TITLE, description="Page title (1-256 characters)")
+    return_content: bool | None = Field(
+        default=True, description="Whether to return the page content"
+    )
 
 
 class InstantViewResponse(BaseModel):
@@ -62,6 +72,15 @@ class InstantViewResponse(BaseModel):
         default=None, description="Telegraph page content nodes"
     )
     error: Optional[str] = Field(default=None, description="Error message if failed")
+
+    @property
+    def instant_view_content(self) -> str:
+        if not self.success:
+            return ""
+
+        return INSTANT_VIEW_METADATA_TPL.format(
+            title=self.page.title, url=self.page.url, author_name=self.page.author_name
+        )
 
 
 class TelegraphInstantViewGenerator:
@@ -97,6 +116,30 @@ class TelegraphInstantViewGenerator:
             return content
         else:
             raise ValueError(f"Unsupported content type: {type(content)}")
+
+    @staticmethod
+    def extract_page_title(nodes: List[Dict[str, Any]]) -> str:
+        """
+        Extract page title from telegraph nodes.
+        Looks for the first heading tag (h3, h4) and returns its text content.
+        """
+        for node in nodes:
+            if not isinstance(node, dict):
+                continue
+
+            # Look for heading tags that could serve as titles
+            if node.get("tag") not in ["h3", "h4"]:
+                continue
+
+            if not (children := node.get("children", [])):
+                continue
+
+            # Extract text from all children and join them
+            for child in children:
+                if isinstance(child, str):
+                    return child
+
+        return DEFAULT_TITLE
 
     def _html_to_telegraph_nodes(self, html_content: str) -> List[Dict[str, Any]]:
         """Convert HTML content to Telegraph Node format"""
@@ -205,7 +248,9 @@ class TelegraphInstantViewGenerator:
         attr_str = ' ' + ' '.join(new_attrs) if new_attrs else ''
         return f'<{tag}{attr_str}>'
 
-    def _element_to_telegraph_node(self, element) -> Optional[Dict[str, Any]]:
+    def _element_to_telegraph_node(
+        self, element: Union[Tag, PageElement, NavigableString]
+    ) -> Optional[Dict[str, Any]]:
         """Convert BeautifulSoup element to Telegraph node"""
         if element.name is None:
             # Text node - preserve whitespace to avoid text merging issues
@@ -276,7 +321,7 @@ class TelegraphInstantViewGenerator:
                 else {"children": children} if children else None
             )
 
-        node = {"tag": element.name}
+        node = {"tag": element.name, "attrs": {}, "children": []}
 
         # Handle attributes
         attrs = {}
@@ -306,18 +351,28 @@ class TelegraphInstantViewGenerator:
         return node
 
     def _markdown_to_telegraph_nodes(self, markdown_content: str) -> List[Dict[str, Any]]:
-        """Convert Markdown content to Telegraph Node format"""
+        """
+        Convert Markdown content to Telegraph Node format
+        -> https://python-markdown.github.io/
+        -> https://github.com/radude/mdx_truly_sane_lists
+
+        Args:
+            markdown_content:
+
+        Returns:
+
+        """
         html_content = markdown.markdown(
             markdown_content,
             extensions=[
-                'extra',  # Includes many useful features
-                'codehilite',  # Code syntax highlighting
-                'toc',  # Table of contents
-                'sane_lists',  # Better list handling with proper nesting
+                'extra',
+                'codehilite',
+                'toc',
                 "wikilinks",
                 "smarty",
                 "mdx_truly_sane_lists",
             ],
+            extension_configs={"mdx_truly_sane_lists": {"nested_indent": 2, "truly_sane": True}},
         )
 
         # Then convert HTML to Telegraph nodes
@@ -370,15 +425,16 @@ class TelegraphInstantViewGenerator:
             else:
                 raise ValueError(f"Unsupported input format: {request.input_format}")
 
-            # Create Telegraph account if needed
+            # Create Telegraph Account if needed
             telegraph = await self._ensure_telegraph_account()
+            account = await telegraph.get_account_info()
 
             # Create page
             page_response = await telegraph.create_page(
-                title=request.title,
+                title=self.extract_page_title(nodes),
                 content=nodes,
-                author_name=request.author_name,
-                author_url=request.author_url,
+                author_name=account["author_name"],
+                author_url=account["author_url"],
                 return_content=request.return_content,
             )
 
@@ -428,10 +484,9 @@ class TelegraphInstantViewGenerator:
 async def create_instant_view(
     content: Union[str, bytes, Path],
     input_format: Literal["HTML", "Markdown"],
-    title: str,
-    author_name: Optional[str] = None,
-    author_url: Optional[str] = None,
+    title: str | None = None,
     return_content: bool = True,
+    **kwargs,
 ) -> InstantViewResponse:
     """
     Convenience function to create a Telegraph instant view
@@ -440,8 +495,6 @@ async def create_instant_view(
         content: Content to convert (file path, bytes, or string)
         input_format: Input format ("HTML" or "Markdown")
         title: Page title
-        author_name: Optional author name
-        author_url: Optional author URL
         return_content: Whether to return page content
 
     Returns:
@@ -449,44 +502,7 @@ async def create_instant_view(
     """
     generator = TelegraphInstantViewGenerator()
     request = InstantViewRequest(
-        content=content,
-        input_format=input_format,
-        title=title,
-        author_name=author_name,
-        author_url=author_url,
-        return_content=return_content,
+        content=content, input_format=input_format, title=title, return_content=return_content
     )
 
     return await generator.generate_instant_view(request)
-
-
-# Example usage
-async def main():
-    """Example usage of the Telegraph instant view generator"""
-
-    # Example with HTML content
-    html_content = """
-    <h1>Hello World</h1>
-    <p>This is a <b>bold</b> text and <i>italic</i> text.</p>
-    <p>Here's a <a href="https://example.com">link</a>.</p>
-    <blockquote>This is a quote</blockquote>
-    <pre><code>print("Hello, World!")</code></pre>
-    """
-
-    response = await create_instant_view(
-        content=html_content,
-        input_format="HTML",
-        title="Example Telegraph Page",
-        author_name="QIN2DIM Bot",
-        author_url="https://github.com/QIN2DIM",
-    )
-
-    if response.success:
-        print(f"Page created: {response.page.url}")
-        print(f"Page path: {response.page.path}")
-    else:
-        print(f"Error: {response.error}")
-
-
-if __name__ == '__main__':
-    asyncio.run(main())
