@@ -15,17 +15,9 @@ from bs4.element import NavigableString, PageElement, Tag
 from pydantic import BaseModel, Field, ConfigDict
 from telegraph.aio import Telegraph
 
-import sys
-from pathlib import Path
-
 from settings import settings
 
 DEFAULT_TITLE = "INSTANT VIEW"
-
-INSTANT_VIEW_METADATA_TPL = """
-<a href="{url}">👉 {title}</a>
-👾 <code>{author_name}</code>
-"""
 
 
 class TelegraphPageResult(BaseModel):
@@ -78,9 +70,11 @@ class InstantViewResponse(BaseModel):
         if not self.success:
             return ""
 
-        return INSTANT_VIEW_METADATA_TPL.format(
-            title=self.page.title, url=self.page.url, author_name=self.page.author_name
-        )
+        instant_view_metadata_chunks = [f'<a href="{self.page.url}">👉 {self.page.title}</a>']
+        if self.page.author_name:
+            instant_view_metadata_chunks.append(f"👾 <code>{self.page.author_name}</code>")
+
+        return "\n".join(instant_view_metadata_chunks)
 
 
 class TelegraphInstantViewGenerator:

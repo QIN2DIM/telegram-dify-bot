@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Dict
 
+import click
 from loguru import logger
 from pydantic import BaseModel, Field
 
@@ -91,13 +92,14 @@ class CommitMessage(BaseModel):
 class GitCommitGenerator:
     """A class to generate git commit messages."""
 
-    def __init__(self, max_context: int = MAX_CONTEXT_LENGTH):
+    def __init__(self, max_context: int = MAX_CONTEXT_LENGTH, auto_push: bool = False):
         """
         Initializes the generator. Automatically finds the git repository root.
         """
         # 关键修改：自动发现 Git 仓库的根目录
         self.repo_path = self._find_git_root()
         self.max_context = max_context
+        self.auto_push = auto_push
 
         logger.debug(f"GitCommitGenerator initialized for repository: {self.repo_path}")
 
@@ -356,8 +358,28 @@ class GitCommitGenerator:
             # 使用 -F - 从标准输入读取多行消息进行提交
             self._run_command(["git", "commit", "-F", "-"], input_=message_str)
             logger.success("Commit applied successfully!")
+            
+            # Push if auto_push is enabled
+            if self.auto_push:
+                self._push_changes()
+                
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to apply commit. Git output:\n{e.stdout}\n{e.stderr}")
+
+    def _push_changes(self):
+        """Push the committed changes to the remote repository."""
+        try:
+            logger.debug("Pushing changes to remote repository...")
+            # Get current branch name
+            current_branch = self._run_command(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+            
+            # Push to origin with the current branch
+            self._run_command(["git", "push", "origin", current_branch])
+            logger.success(f"Successfully pushed changes to origin/{current_branch}")
+            
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to push changes. Git output:\n{e.stdout}\n{e.stderr}")
+            raise
 
     def run(self):
         """Main execution flow."""
@@ -379,12 +401,20 @@ class GitCommitGenerator:
             logger.exception(f"An unexpected error occurred: {e}")
 
 
-def main():
+@click.command()
+@click.option(
+    '--push', 
+    is_flag=True, 
+    default=False, 
+    help='Automatically push changes to remote repository after successful commit.'
+)
+def main(push: bool):
+    """Generate git commit message and apply commit with optional auto-push."""
     # 检查是否在 git 仓库中
     if not Path(".git").is_dir():
         logger.error("This script must be run from the root of a Git repository.")
     else:
-        generator = GitCommitGenerator()
+        generator = GitCommitGenerator(auto_push=push)
         generator.run()
 
 
