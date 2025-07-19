@@ -309,8 +309,26 @@ async def send_streaming_response(
             # 期望 instant_view 都使用标准的 Markdown 语法表达，而非 HTML
             if extras.get("is_instant_view"):
                 try:
+                    instant_view_content = final_answer
+
+                    # 如果是地理位置识别任务且有图片，将图片整合到 Instant View 内容中
+                    photo_links = extras.get("photo_links", [])
+                    place_name = extras.get("place_name", "")
+                    if final_type == AnswerType.GEOLOCATION_IDENTIFICATION and photo_links:
+                        # 将图片链接添加到 Markdown 内容中
+                        instant_view_content += "\n\n"
+                        if place_name:
+                            instant_view_content += f"## {place_name}\n\n"
+
+                        # 添加图片到 Markdown 中
+                        for i, photo_url in enumerate(photo_links):
+                            if i == 0:
+                                instant_view_content += f"![Street View]({photo_url})\n\n"
+                            else:
+                                instant_view_content += f"![Street View {i+1}]({photo_url})\n\n"
+
                     response = await create_instant_view(
-                        content=final_answer, input_format="Markdown"
+                        content=instant_view_content, input_format="Markdown"
                     )
                     if response.success:
                         await context.bot.edit_message_text(
@@ -322,6 +340,7 @@ async def send_streaming_response(
                         return
                 except Exception as send_error:
                     logger.error(f"发送错误回复失败: {send_error}")
+                    # Instant View 渲染失败，将继续执行后续的通用渲染和街景图片发送逻辑作为兜底
 
             # == RENDER 2: General RichText == #
             # 更新初始消息为最终答案
