@@ -68,6 +68,5 @@ Thumbs.db
 docker/
 examples/
 .dockerignore
-README.md
 app/**/*.md
 .github/
