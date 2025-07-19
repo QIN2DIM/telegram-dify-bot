@@ -326,9 +326,10 @@ async def send_streaming_response(
                                 instant_view_content += f"![Street View]({photo_url})\n\n"
                             else:
                                 instant_view_content += f"![Street View {i+1}]({photo_url})\n\n"
-
                     response = await create_instant_view(
-                        content=instant_view_content, input_format="Markdown"
+                        content=instant_view_content,
+                        input_format="Markdown",
+                        title=extras.get("title"),
                     )
                     if response.success:
                         await context.bot.edit_message_text(

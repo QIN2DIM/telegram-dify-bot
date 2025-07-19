@@ -431,7 +431,7 @@ class TelegraphInstantViewGenerator:
 
             # Create page
             page_response = await telegraph.create_page(
-                title=self.extract_page_title(nodes),
+                title=request.title or self.extract_page_title(nodes),
                 content=nodes,
                 author_name=account["author_name"],
                 author_url=account["author_url"],
