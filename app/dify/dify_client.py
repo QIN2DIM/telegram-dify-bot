@@ -88,13 +88,7 @@ class DifyWorkflowClient:
             response.raise_for_status()
             result = response.json()
             return WorkflowCompletionResponse(**result)
-        else:
-            async with aconnect_sse(
-                self._client, "POST", "/workflows/run", json=payload_json
-            ) as event_source:
-                async for sse in event_source.aiter_sse():
-                    print(sse.event, sse.data, sse.id, sse.retry)
-            # return WorkflowRunResponse(**result)
+
         return None
 
     async def streaming(

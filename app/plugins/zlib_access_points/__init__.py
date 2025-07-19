@@ -6,5 +6,11 @@
 @Desc    :
 """
 from .node import update_zlib_links, get_zlib_search_url, get_zlib_search_url_with_info
+from .crud import init_database
 
-__all__ = ["update_zlib_links", "get_zlib_search_url", "get_zlib_search_url_with_info"]
+__all__ = [
+    "update_zlib_links",
+    "get_zlib_search_url",
+    "get_zlib_search_url_with_info",
+    "init_database",
+]

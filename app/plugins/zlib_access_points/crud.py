@@ -38,9 +38,9 @@ def init_database():
     """初始化数据库表"""
     try:
         Base.metadata.create_all(bind=engine)
-        logger.success("数据库表初始化成功")
+        logger.success("[Z-Library] 数据库表初始化成功")
     except Exception as e:
-        logger.error(f"数据库表初始化失败: {e}")
+        logger.error(f"[Z-Library] 数据库表初始化失败: {e}")
         raise
 
 
