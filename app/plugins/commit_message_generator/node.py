@@ -15,9 +15,9 @@ project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from settings import LOG_DIR
-from utils import init_log
-from dify.workflow_tool import invoke_commit_message_generation
+from settings import LOG_DIR  # noqa: E402
+from utils import init_log  # noqa: E402
+from dify.workflow_tool import invoke_commit_message_generation  # noqa: E402
 
 init_log(
     runtime=LOG_DIR.joinpath("runtime.log"),
@@ -41,8 +41,8 @@ Generate a git commit message for the following changes.
 Provide the commit message as a single JSON object, following the rules and format specified in the system instructions. Do not add any text before or after the JSON object.
 """
 
-# 上下文最大长度（字符数），16k ~= 16384
-MAX_CONTEXT_LENGTH = 16384
+# 上下文最大长度（字符数），32k
+MAX_CONTEXT_LENGTH = 32768
 
 # 特殊文件处理规则
 SPECIAL_FILE_HANDLERS = {
@@ -261,7 +261,6 @@ class GitCommitGenerator:
         if file_diffs[0] == '':
             file_diffs = file_diffs[1:]
 
-        compressed_diffs: Dict[str, str] = {}
         total_len = 0
 
         # First, process special files and small files
@@ -358,11 +357,11 @@ class GitCommitGenerator:
             # 使用 -F - 从标准输入读取多行消息进行提交
             self._run_command(["git", "commit", "-F", "-"], input_=message_str)
             logger.success("Commit applied successfully!")
-            
+
             # Push if auto_push is enabled
             if self.auto_push:
                 self._push_changes()
-                
+
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to apply commit. Git output:\n{e.stdout}\n{e.stderr}")
 
@@ -372,11 +371,11 @@ class GitCommitGenerator:
             logger.debug("Pushing changes to remote repository...")
             # Get current branch name
             current_branch = self._run_command(["git", "rev-parse", "--abbrev-ref", "HEAD"])
-            
+
             # Push to origin with the current branch
             self._run_command(["git", "push", "origin", current_branch])
             logger.success(f"Successfully pushed changes to origin/{current_branch}")
-            
+
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to push changes. Git output:\n{e.stdout}\n{e.stderr}")
             raise
@@ -403,10 +402,10 @@ class GitCommitGenerator:
 
 @click.command()
 @click.option(
-    '--push', 
-    is_flag=True, 
-    default=False, 
-    help='Automatically push changes to remote repository after successful commit.'
+    '--push',
+    is_flag=True,
+    default=False,
+    help='Automatically push changes to remote repository after successful commit.',
 )
 def main(push: bool):
     """Generate git commit message and apply commit with optional auto-push."""

@@ -86,7 +86,20 @@ class Settings(BaseSettings):
 
     ENABLE_DEV_MODE: bool = Field(
         default=False,
-        description="是否为开发模式，开发模式下会 MOCK 模型调用请求，立即响应模版信息。",
+        description="""
+        是否为开发模式，开发模式下会 MOCK 模型调用请求，立即响应模版信息。
+        消息不会发送到 Dify，所有请求均在本地环回。一般在仅开发 Bot 端功能时按需启动。
+        """,
+    )
+
+    ENABLE_TEST_MODE: bool = Field(
+        default=False,
+        description="""
+        是否为测试模式，默认 False 也即关闭测试模式。
+        测试模式下消息会发送到 Dify 但会触发 forced_command 协议标准，立即返回一个提前设定好的段落结果。
+        例如：直接假设一大段文本是模型生成的，直接通过 结束 节点返回。
+        可以方便测试接口协议标准以及协议边界值问题。
+        """,
     )
 
     DEV_MODE_MOCKED_TEMPLATE: str = Field(
@@ -119,7 +132,18 @@ class Settings(BaseSettings):
         if "linux" in sys.platform:
             if self.ENABLE_DEV_MODE:
                 logger.warning("开发模式已自动关闭，请勿在 Linux 上运行开发模式")
+                self.ENABLE_DEV_MODE = False
+
+            if self.ENABLE_TEST_MODE:
+                logger.warning("测试模式已自动关闭，请勿在 Linux 上运行测试模式")
+                self.ENABLE_TEST_MODE = False
+
+        # 测试模式下自动关闭开发模式，并强制使用阻塞模式
+        if self.ENABLE_TEST_MODE:
+            if self.ENABLE_DEV_MODE:
+                logger.warning("开发模式已自动关闭，开发模式和测试模式不能同时开启")
             self.ENABLE_DEV_MODE = False
+            # self.RESPONSE_MODE = "blocking"
 
         # 开发环境下默认使用阻塞模式
         if self.ENABLE_DEV_MODE:
