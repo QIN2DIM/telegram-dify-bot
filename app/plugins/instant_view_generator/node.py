@@ -60,7 +60,7 @@ class InstantViewResponse(BaseModel):
     page: Optional[TelegraphPageResult] = Field(
         default=None, description="Telegraph page information"
     )
-    content: Optional[List[Dict[str, Any]]] = Field(
+    content: List[Union[Dict[str, Any], str]] | None = Field(
         default=None, description="Telegraph page content nodes"
     )
     error: Optional[str] = Field(default=None, description="Error message if failed")

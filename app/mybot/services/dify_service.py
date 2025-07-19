@@ -32,10 +32,11 @@ async def invoke_model_blocking(
     result_text = result.data.outputs.answer
 
     with suppress(Exception):
-        outputs_json = json.dumps(
-            result.data.outputs.model_dump(mode="json"), indent=2, ensure_ascii=False
-        )
-        logger.debug(f"LLM Result: \n{outputs_json}")
+        if settings.ENABLE_TEST_MODE:
+            outputs_json = json.dumps(
+                result.data.outputs.model_dump(mode="json"), indent=2, ensure_ascii=False
+            )
+            logger.debug(f"LLM Result: \n{outputs_json}")
 
     return result_text
 

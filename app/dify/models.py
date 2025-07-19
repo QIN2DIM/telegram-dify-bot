@@ -6,7 +6,7 @@
 @Desc    :
 """
 from decimal import Decimal
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any, Dict, List, Optional, Union
 from typing import Type, Literal
 
@@ -25,8 +25,18 @@ class FilesUploadResponse(BaseModel):
     created_at: int
 
 
+class ForcedCommand(StrEnum):
+    ANY = "Any"
+    COMMIT_MESSAGE_GENERATION = "CommitMessageGeneration"
+    AUTO_TRANSLATION = "AutoTranslation"
+    TEST = "Test"
+
+
 FILE_TYPE = Union[str, Literal["document", "image", "audio", "video", "custom"]]
-FORCED_COMMAND_TYPE = Union[str, Literal["Any", "CommitMessageGeneration", "AutoTranslation"]]
+
+FORCED_COMMAND_TYPE = Union[
+    str, ForcedCommand, Literal["Any", "CommitMessageGeneration", "AutoTranslation", "Test"]
+]
 
 
 class WorkflowFileInputBody(BaseModel):

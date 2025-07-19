@@ -60,6 +60,9 @@ def main() -> None:
     if settings.ENABLE_DEV_MODE:
         logger.warning("🪄 开发模式已启动")
 
+    if settings.ENABLE_TEST_MODE:
+        logger.warning("🪄 测试模式已启动")
+
     # 定期清理旧的下载图片（每次重启时都尝试清理）
     with suppress(Exception):
         cleanup_old_photos(max_age_hours=24)
