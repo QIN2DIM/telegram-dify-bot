@@ -23,6 +23,7 @@ Bot 端负责处理一切与 Telegram 交互的脏活累活，目标是让用户
 3. **所见即所得的流式响应**：对耗时长的任务，Bot 会实时“直播”它的工作进度，而不是让你盯着“正在输入...”干着急。支持 `blocking` 与 `streaming` 智能切换。
 4. **Agent 思考过程全透明**：当使用 Agent 时，它的 `thought` 和 `action` 会被实时追踪并展示。你知道它在想什么，在调用什么工具，一切尽在掌握。[🔗](https://r2-datalake.echosec.top/telegram-dify-bot/invoke-bot-agent-node.mp4)
 5. **不止于文本的全模态交互**：无论是文字、图片、文档还是音视频，尽管丢给它。它不仅能“看”懂，还能用图文并茂的方式给你回应。[🔗](https://r2-datalake.echosec.top/telegram-dify-bot/invoke-bot-mixed-input.mp4)
+6. **INSTANT VIEW 释放想象力**：Telegram 客户端支持的渲染表达比较有限，但借助 Telegraph 可表达完整的全模态上下文信息。[preview](https://telegra.ph/%E5%8E%9F%E5%AD%90%E4%B9%8B%E5%BF%83Atomic-Heart-%E6%B8%B8%E6%88%8F%E4%BB%8B%E7%BB%8D-07-20) |  [instant view](https://r2-datalake.echosec.top/blog-obs/2025/07/ce7082a7ffb1b73575e0d35bf1cea8f5.png) | [telegraph article](https://r2-datalake.echosec.top/blog-obs/2025/07/a68a20d8886ad9a4a97f6827e9d22f06.png)
 
 ### 已上线的实用指令
 
@@ -39,20 +40,17 @@ Bot 端负责处理一切与 Telegram 交互的脏活累活，目标是让用户
 
 ### 未来的一些脑洞 & Flag
 
--   [ ] **Telegraph 即时预览**
-    > 必拿下！用最小的力气，撬动最大的体验升级，让长篇内容拥有优雅的阅读视图。
+- [ ] **真正的长期记忆**
+  > 这是圣杯，也是天坑。目标是让 Bot 能理解碎片化消息背后的深层意图，在连续的对话中表现得更像一个“有记忆”的伙伴，而不是一个金鱼。
 
--   [ ] **真正的长期记忆**
-    > 这是圣杯，也是天坑。目标是让 Bot 能理解碎片化消息背后的深层意图，在连续的对话中表现得更像一个“有记忆”的伙伴，而不是一个金鱼。
+- [ ] **视频与音频输出**
+  > 需求量极低，但好像有点酷的实验性探索。
 
--   [ ] **视频与音频输出**
-    > 需求量极低，但好像有点酷的实验性探索。
+- [ ] **Call the bot**
+  > 一拍脑门想的，Dify 和机器人接口支不支持实时通话还是个未知数。
 
--   [ ] **Call the bot**
-    > 一拍脑门想的，Dify 和机器人接口支不支持实时通话还是个未知数。
-
--   [ ] **群内“仅你可见”的私聊**
-    > 在“避免机器人被滥用”和“防止用户社死”之间寻找一个微妙的平衡点。
+- [ ] **群内“仅你可见”的私聊**
+  > 在“避免机器人被滥用”和“防止用户社死”之间寻找一个微妙的平衡点。
 
 ---
 
