@@ -17,7 +17,11 @@ from settings import settings
 
 
 async def invoke_model_blocking(
-    bot_username: str, message_context: str, from_user: str, photo_paths: Optional[List[Path]]
+    bot_username: str,
+    message_context: str,
+    from_user: str,
+    photo_paths: Optional[List[Path]],
+    **kwargs,
 ) -> str:
     if settings.ENABLE_DEV_MODE:
         return settings.DEV_MODE_MOCKED_TEMPLATE
@@ -28,6 +32,7 @@ async def invoke_model_blocking(
         message_context=message_context,
         from_user=from_user,
         with_files=photo_paths,
+        **kwargs,
     )
     result_text = result.data.outputs.answer
 
@@ -42,7 +47,11 @@ async def invoke_model_blocking(
 
 
 async def invoke_model_streaming(
-    bot_username: str, message_context: str, from_user: str, photo_paths: Optional[List[Path]]
+    bot_username: str,
+    message_context: str,
+    from_user: str,
+    photo_paths: Optional[List[Path]],
+    **kwargs,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """以流式方式调用 Dify 并返回事件块。"""
     streaming_generator = await run_streaming_dify_workflow(
@@ -50,6 +59,7 @@ async def invoke_model_streaming(
         message_context=message_context,
         from_user=from_user,
         with_files=photo_paths,
+        **kwargs,
     )
     async for chunk in streaming_generator:
         yield chunk

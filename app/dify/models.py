@@ -29,6 +29,7 @@ class ForcedCommand(StrEnum):
     ANY = "Any"
     COMMIT_MESSAGE_GENERATION = "CommitMessageGeneration"
     AUTO_TRANSLATION = "AutoTranslation"
+    GOOGLE_GROUNDING = "GoogleGrounding"
     TEST = "Test"
 
 

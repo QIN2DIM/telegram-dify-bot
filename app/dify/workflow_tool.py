@@ -17,7 +17,6 @@ from dify.models import (
     ForcedCommand,
 )
 from settings import settings
-from loguru import logger
 
 
 async def run_blocking_dify_workflow(
@@ -36,7 +35,6 @@ async def run_blocking_dify_workflow(
         ForcedCommand.COMMIT_MESSAGE_GENERATION
     ]:
         forced_command = ForcedCommand.TEST
-        logger.debug("Sending request to Dify with forced_command: {}".format(forced_command))
 
     client = DifyWorkflowClient()
 
@@ -63,7 +61,6 @@ async def run_streaming_dify_workflow(
         ForcedCommand.COMMIT_MESSAGE_GENERATION
     ]:
         forced_command = ForcedCommand.TEST
-        logger.debug("Sending request to Dify with forced_command: {}".format(forced_command))
 
     client = DifyWorkflowClient()
     inputs = WorkflowInputs(

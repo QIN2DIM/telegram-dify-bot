@@ -211,3 +211,4 @@ __marimo__/
 examples/tmp
 app/data
 docker/volumes/
+examples/ff.py

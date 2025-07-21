@@ -15,7 +15,7 @@ from telegram import Update, BotCommand
 from telegram.ext import CommandHandler, MessageHandler, filters
 
 from mybot.common import cleanup_old_photos
-from mybot.handlers.command_handler import start_command, help_command, zlib_command
+from mybot.handlers.command_handler import start_command, help_command, zlib_command, search_command
 from mybot.handlers.message_handler import handle_message
 from plugins import zlib_access_points
 from settings import settings, LOG_DIR
@@ -40,7 +40,8 @@ async def setup_bot_commands(application):
     commands = [
         # BotCommand("start", "开始使用机器人"),
         # BotCommand("help", "获取帮助信息"),
-        BotCommand("zlib", "获取 Z-Library 搜索链接")
+        BotCommand("zlib", "获取 Z-Library 搜索链接"),
+        BotCommand("search", "Grounding with Google Search"),
     ]
 
     try:
@@ -80,6 +81,7 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("zlib", zlib_command))
+    application.add_handler(CommandHandler("search", search_command))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))
