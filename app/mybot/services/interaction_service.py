@@ -19,7 +19,6 @@ from mybot.common import (
     get_hello_reply,
     get_image_mention_prompt,
 )
-from settings import settings
 
 
 def _extract_message_entities(message: Message) -> Dict[str, List[Dict]]:
@@ -349,8 +348,8 @@ def _determine_task_type(
     """
     判断是否需要进行直接翻译及翻译类型
     """
-    if chat.id not in settings.whitelist:
-        return None
+    # Note: Access control is now handled in pre_interactivity via access_control service
+    # The old whitelist check has been removed from here
 
     # 避免处理机器人自己发送的消息，防止循环回复
     if message.from_user.is_bot and message.from_user.username == bot.username:
@@ -382,6 +381,13 @@ async def pre_interactivity(
     Handles pre-interaction logic like task identification, reacting to messages, and downloading media.
     Enhanced version that captures more complete message context.
     """
+    # Import access_control here to avoid circular imports
+    from mybot.services.access_control_service.access_control import access_control
+
+    # Check user access first
+    if not await access_control.ensure_user_allowed(update, context):
+        return None
+
     # 使用 effective_* 方法获取有效的聊天和消息
     chat = update.effective_chat
     trigger_message = update.effective_message

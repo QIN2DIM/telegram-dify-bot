@@ -32,6 +32,7 @@ services:
     volumes:
       - "./volumes/telegram-bot/logs:/app/app/logs"
       - "./volumes/telegram-bot/data:/app/app/data"
+      - "./volumes/telegram-bot/config:/app/app/config"
     environment:
       DATABASE_URL: "${DATABASE_URL:-postgresql://postgres:WdA25SmrLmFkGPcg@db:5432/telegram_dify_bot}"
     command: uv run app/main.py
@@ -49,6 +50,7 @@ services:
       - .env
     volumes:
       - "./volumes/telegram-bot-triggers/logs:/app/app/logs"
+      - "./volumes/telegram-bot-triggers/config:/app/app/config"
     environment:
       DATABASE_URL: "${DATABASE_URL:-postgresql://postgres:WdA25SmrLmFkGPcg@db:5432/telegram_dify_bot}"
     command: uv run app/deploy.py
