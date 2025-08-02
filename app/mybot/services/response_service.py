@@ -167,12 +167,13 @@ async def _send_media_group_with_caption(
                     InputMediaPhoto(media=photo_url, caption=caption, parse_mode=ParseMode.HTML)
                 )
             else:
-                media_group.append(InputMediaPhoto(media=photo_url))
+                media_group.append(InputMediaPhoto(media=photo_url, parse_mode=ParseMode.HTML))
 
         await context.bot.send_media_group(
             chat_id=chat_id,
             media=media_group[:MEDIA_GROUP_LIMIT],
             reply_to_message_id=reply_to_message_id,
+            parse_mode=ParseMode.HTML,
         )
         return True
     except Exception as err:

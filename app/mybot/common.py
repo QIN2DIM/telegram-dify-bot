@@ -128,6 +128,86 @@ def cleanup_old_photos(max_age_hours: int = 24) -> None:
         logger.error(f"Failed to cleanup old photos: {e}")
 
 
+def cleanup_old_social_downloads(max_age_hours: int = 48) -> None:
+    """
+    清理超过指定时间的社交媒体下载文件
+
+    Args:
+        max_age_hours: 文件最大保留时间（小时）
+    """
+    social_downloads_dir = DATA_DIR / "downloads"
+    if not social_downloads_dir.exists():
+        return
+
+    current_time = time.time()
+    max_age_seconds = max_age_hours * 3600
+
+    total_cleaned_count = 0
+    total_cleaned_size = 0
+
+    try:
+        # 遍历所有平台目录（除了 photos）
+        for platform_dir in social_downloads_dir.iterdir():
+            if not platform_dir.is_dir() or platform_dir.name == "photos":
+                continue
+
+            platform_cleaned_count = 0
+            platform_cleaned_size = 0
+
+            # 遍历平台下的所有内容目录
+            for content_dir in platform_dir.iterdir():
+                if not content_dir.is_dir():
+                    continue
+
+                # 检查目录中的文件
+                files_to_clean = []
+                for file_path in content_dir.iterdir():
+                    if file_path.is_file():
+                        file_age = current_time - file_path.stat().st_mtime
+                        if file_age > max_age_seconds:
+                            files_to_clean.append(file_path)
+
+                # 删除过期文件
+                for file_path in files_to_clean:
+                    try:
+                        file_size = file_path.stat().st_size
+                        file_path.unlink()
+                        platform_cleaned_count += 1
+                        platform_cleaned_size += file_size
+                    except Exception as file_error:
+                        logger.warning(f"Failed to delete file {file_path}: {file_error}")
+
+                # 如果目录为空，删除目录
+                try:
+                    if not any(content_dir.iterdir()):
+                        content_dir.rmdir()
+                        logger.debug(f"Removed empty directory: {content_dir}")
+                except Exception as dir_error:
+                    logger.debug(f"Failed to remove directory {content_dir}: {dir_error}")
+
+            # 记录平台清理统计
+            if platform_cleaned_count > 0:
+                platform_cleaned_size_mb = platform_cleaned_size / (1024 * 1024)
+                logger.info(
+                    f"Cleaned up {platform_cleaned_count} old {platform_dir.name} files "
+                    f"({platform_cleaned_size_mb:.2f}MB)"
+                )
+
+            total_cleaned_count += platform_cleaned_count
+            total_cleaned_size += platform_cleaned_size
+
+        # 总体统计
+        if total_cleaned_count > 0:
+            total_cleaned_size_mb = total_cleaned_size / (1024 * 1024)
+            logger.info(
+                f"Total cleanup: {total_cleaned_count} files "
+                f"({total_cleaned_size_mb:.2f}MB) from all platforms"
+            )
+
+    except Exception as e:
+        logger.error(f"Failed to cleanup old social media downloads: {e}")
+
+
 hello_replies: List[str] = [
     "Hey! 👋 Welcome—I'm here to help. 😊\nWhat can I do for you today? Whether it’s a question, an idea, or you just want to chat, I’m all ears! 💬❤️‍🔥",
     "Hi there!",

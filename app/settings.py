@@ -25,98 +25,126 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_ignore_empty=True, extra="ignore")
 
     TELEGRAM_BOT_API_TOKEN: SecretStr = Field(
-        default="", description="通过 https://t.me/BotFather 获取机器人的 API_TOKEN"
+        default="", description="Get the bot's API_TOKEN from https://t.me/BotFather"
     )
 
     DIFY_APP_BASE_URL: str = Field(
-        default="https://api.dify.ai/v1", description="Dify Workflow 后端连接"
+        default="https://api.dify.ai/v1", description="Dify Workflow backend connection"
     )
 
     DIFY_WORKFLOW_API_KEY: SecretStr = Field(
         default="",
-        description="用于连接 Dify Workflow 的 API_KEY。请注意该项目仅适配 Workflow 类型 Application（非 Chatflow）。",
+        description="API_KEY for connecting to Dify Workflow. Note that this project only supports Workflow type Application (not Chatflow).",
     )
+
+    XHS_DOWNLOADER_BASE_URL: str = Field(
+        default="http://xhs-downloader:5556",
+        description="XHS Downloader base URL. Project: https://github.com/JoeanAmier/XHS-Downloader",
+    )
+    XHS_CONNECTION_TIMEOUT: int = Field(default=300)
 
     SAFE_ZLIBRARY_WIKI_URL: str = Field(default="https://en.wikipedia.org/wiki/Z-Library")
 
-    # 数据库配置
+    # Database configuration
     DATABASE_URL: str = Field(
         default="postgresql://postgres:YHMovFEM82o4Ys6n@localhost:27429/telegram_dify_bot",
-        description="PostgreSQL 数据库连接 URL",
+        description="PostgreSQL database connection URL",
     )
 
     TELEGRAM_CHAT_WHITELIST: str = Field(
-        default="", description="允许的聊天 ID，可以同时约束 channel，group，private，supergroup。"
+        default="",
+        description="Allowed chat IDs, can simultaneously constrain channel, group, private, supergroup.",
     )
 
     RESPONSE_MODE: Literal["blocking", "streaming"] = Field(
-        default="streaming", description="响应模式: `blocking` 或 `streaming`。"
+        default="streaming", description="Response mode: `blocking` or `streaming`."
     )
 
     whitelist: Set[int] = Field(
         default_factory=set,
-        description="配置 TELEGRAM_CHAT_WHITELIST 后， id 被清洗到该列表方便使用",
+        description="After configuring TELEGRAM_CHAT_WHITELIST, IDs are cleaned into this list for easy use",
     )
 
     BOT_ANSWER_PARSE_MODE: Literal["HTML"] = Field(
         default="HTML",
-        description="约束模型的输出格式，默认为 HTML，要求模型用 HTML 表达富文本而非 Markdown。",
+        description="Constrains the model's output format, defaults to HTML, requiring the model to express rich text in HTML rather than Markdown.",
     )
 
     BOT_OUTPUTS_TYPE_KEY: str = Field(
         default="type",
-        description="在 Dify Workflow 返回的 outputs 中，哪个字段在区分任务类型。默认为 `type` 字段。",
+        description="In the outputs returned by Dify Workflow, which field is used to distinguish task types. Defaults to the `type` field.",
     )
 
     BOT_OUTPUTS_ANSWER_KEY: str = Field(
         default="answer",
-        description="在 Dify Workflow 返回的 outputs 中，将哪个字段的值视为用于回复的纯文本答案。默认为 `answer` 字段。",
+        description="In the outputs returned by Dify Workflow, which field's value is considered as the plain text answer for replies. Defaults to the `answer` field.",
     )
 
     BOT_OUTPUTS_EXTRAS_KEY: str = Field(
-        default="extras", description="在 Dify Workflow 输出的 outputs 中，作为额外数据的字段。"
+        default="extras", description="Field in the outputs of Dify Workflow as additional data."
     )
 
-    # 新增：HTTP 请求超时配置
+    # New: HTTP request timeout configuration
     HTTP_REQUEST_TIMEOUT: float = Field(
         default=75.0,
-        description="HTTP 请求超时时间（秒），用于 Telegram API 调用。默认 75 秒。"
-        "该值在接口层的默认值为 5 秒，此处调高该值，支持机器人响应一些提及较大的全模态媒体组，例如：文档和音视频",
+        description="HTTP request timeout (seconds), used for Telegram API calls. Default 75 seconds. "
+        "The default value at the interface layer is 5 seconds, here we increase this value to support bot responses to some larger full-modal media groups, such as: documents and audio/video",
     )
 
     ENABLE_DEV_MODE: bool = Field(
         default=False,
         description="""
-        是否为开发模式，开发模式下会 MOCK 模型调用请求，立即响应模版信息。
-        消息不会发送到 Dify，所有请求均在本地环回。一般在仅开发 Bot 端功能时按需启动。
+        Whether it's development mode, in development mode MOCK model call requests will be made, immediately responding with template information.
+        Messages won't be sent to Dify, all requests are local loopback. Generally started on-demand when only developing Bot-side functionality.
         """,
     )
 
     ENABLE_TEST_MODE: bool = Field(
         default=False,
         description="""
-        是否为测试模式，默认 False 也即关闭测试模式。
-        测试模式下消息会发送到 Dify 但会触发 forced_command 协议标准，立即返回一个提前设定好的段落结果。
-        例如：直接假设一大段文本是模型生成的，直接通过 结束 节点返回。
-        可以方便测试接口协议标准以及协议边界值问题。
+        Whether it's test mode, default False means test mode is off.
+        In test mode, messages will be sent to Dify but will trigger the forced_command protocol standard, immediately returning a pre-set paragraph result.
+        For example: directly assuming a large paragraph of text is model-generated, directly returning through the end node.
+        Can facilitate testing interface protocol standards and protocol boundary value issues.
         """,
     )
 
     DEV_MODE_MOCKED_TEMPLATE: str = Field(
-        default="<b>in the dev mode!</b>", description="当开发模式开启时，将返回该模版作为回复。"
+        default="<b>in the dev mode!</b>",
+        description="When development mode is enabled, this template will be returned as a reply.",
     )
 
-    # Telegraph 配置
+    # Telegraph configuration
     TELEGRAPH_SHORT_NAME: str | None = Field(
-        default=None, description="Telegraph 账户的短名称，显示在编辑按钮上方"
+        default=None,
+        description="Short name of the Telegraph account, displayed above the edit button",
     )
 
     TELEGRAPH_AUTHOR_NAME: str | None = Field(
-        default=None, description="Telegraph 页面的默认作者名称"
+        default=None, description="Default author name for Telegraph pages"
     )
 
     TELEGRAPH_AUTHOR_URL: str | None = Field(
-        default=None, description="Telegraph 页面的默认作者链接"
+        default=None, description="Default author link for Telegraph pages"
+    )
+
+    # New: Binders configuration
+    BINDERS_YAML_PATH: Path = Field(
+        default=PROJECT_DIR / "config" / "binders.yaml",
+        description="Binders configuration file path",
+    )
+
+    SUPER_ADMIN_ID: int = Field(
+        default=0, description="Super admin Telegram User ID, has all permissions"
+    )
+
+    SUPER_ADMIN_COMMAND: str = Field(
+        default="__acl_sync", description="Super admin panel call command, defaults to __acl_sync"
+    )
+
+    SHA256_SALT: str = Field(
+        default="❤TelegramBot❤",
+        description="SHA256 hash salt value, used for encrypted storage of user IDs",
     )
 
     def model_post_init(self, context: Any, /) -> None:
@@ -126,26 +154,32 @@ class Settings(BaseSettings):
                     int(i.strip()) for i in filter(None, self.TELEGRAM_CHAT_WHITELIST.split(","))
                 }
         except Exception as err:
-            logger.warning(f"解析 TELEGRAM_CHAT_WHITELIST 失败 - {err}")
+            logger.warning(f"Failed to parse TELEGRAM_CHAT_WHITELIST - {err}")
 
-        # 防呆设置，假设 Linux 作为生产环境部署
+        # Foolproof settings, assuming Linux as production environment deployment
         if "linux" in sys.platform:
             if self.ENABLE_DEV_MODE:
-                logger.warning("开发模式已自动关闭，请勿在 Linux 上运行开发模式")
+                logger.warning(
+                    "Development mode has been automatically turned off, please do not run development mode on Linux"
+                )
                 self.ENABLE_DEV_MODE = False
 
             if self.ENABLE_TEST_MODE:
-                logger.warning("测试模式已自动关闭，请勿在 Linux 上运行测试模式")
+                logger.warning(
+                    "Test mode has been automatically turned off, please do not run test mode on Linux"
+                )
                 self.ENABLE_TEST_MODE = False
 
-        # 测试模式下自动关闭开发模式，并强制使用阻塞模式
+        # In test mode, automatically turn off development mode and force blocking mode
         if self.ENABLE_TEST_MODE:
             if self.ENABLE_DEV_MODE:
-                logger.warning("开发模式已自动关闭，开发模式和测试模式不能同时开启")
+                logger.warning(
+                    "Development mode has been automatically turned off, development mode and test mode cannot be enabled simultaneously"
+                )
             self.ENABLE_DEV_MODE = False
             # self.RESPONSE_MODE = "blocking"
 
-        # 开发环境下默认使用阻塞模式
+        # Development environment defaults to blocking mode
         if self.ENABLE_DEV_MODE:
             self.RESPONSE_MODE = "blocking"
 
@@ -161,7 +195,7 @@ class Settings(BaseSettings):
             .read_timeout(self.HTTP_REQUEST_TIMEOUT)
         )
         if proxy_url := getproxies().get("http"):
-            logger.success(f"使用代理: {proxy_url}")
+            logger.success(f"Using proxy: {proxy_url}")
             application = _base_builder.proxy(proxy_url).get_updates_proxy(proxy_url).build()
         else:
             application = _base_builder.build()

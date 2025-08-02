@@ -78,6 +78,18 @@ services:
     networks:
       - app-network
 
+  xhs-downloader:
+    image: ghcr.io/joeanamier/xhs-downloader:2.6-dev
+    restart: always
+    container_name: xhs-downloader
+    networks:
+      - app-network
+    ports:
+      - "15556:5556"
+    volumes:
+      - "./volumes/xhs_downloader:/app/Volume"
+    command: python main.py api
+
 networks:
   app-network:
     driver: bridge
