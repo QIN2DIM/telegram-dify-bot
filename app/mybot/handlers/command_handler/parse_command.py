@@ -13,6 +13,7 @@ from telegram import ReactionTypeEmoji, Update, InputMediaPhoto, InputMediaVideo
 from telegram.ext import ContextTypes
 
 from plugins.social_parser import parser_registry
+from utils.image_compressor import compress_image_for_telegram
 
 
 def _extract_link_from_args(args: list) -> str:
@@ -67,6 +68,7 @@ async def _send_media_files(
     photos = []
     videos = []
     documents = []
+    compressed_files = []  # Track compressed files for cleanup
 
     for result in successful_downloads:
         file_path = result['local_path']
@@ -84,7 +86,19 @@ async def _send_media_files(
             caption = post_content if post_content else "📥 下载的媒体文件"
 
         if media_type == 'photo':
-            photos.append({'file_path': file_path, 'caption': caption})
+            # Try to compress image if needed
+            try:
+                compressed_path = compress_image_for_telegram(file_path)
+                if compressed_path != file_path:
+                    # Compression was performed, track for cleanup
+                    compressed_files.append(compressed_path)
+                    logger.info(
+                        f"Image compressed: {Path(file_path).name} -> {Path(compressed_path).name}"
+                    )
+                photos.append({'file_path': compressed_path, 'caption': caption})
+            except Exception as e:
+                logger.warning(f"Image compression failed for {file_path}: {e}, using original")
+                photos.append({'file_path': file_path, 'caption': caption})
         elif media_type == 'video':
             videos.append({'file_path': file_path, 'caption': caption})
         else:
@@ -101,11 +115,15 @@ async def _send_media_files(
                 for photo_info in batch_info:
                     file_obj = open(photo_info['file_path'], 'rb')
                     media_batch.append(
-                        InputMediaPhoto(media=file_obj, caption=photo_info['caption'])
+                        InputMediaPhoto(
+                            media=file_obj, caption=photo_info['caption'], parse_mode="HTML"
+                        )
                     )
 
                 try:
-                    await context.bot.send_media_group(chat_id=chat_id, media=media_batch)
+                    await context.bot.send_media_group(
+                        chat_id=chat_id, media=media_batch, parse_mode="HTML"
+                    )
                     logger.info(f"Sent photo batch {i//10 + 1} with {len(batch_info)} photos")
                 finally:
                     # Close files for this batch
@@ -125,11 +143,15 @@ async def _send_media_files(
                 for video_info in batch_info:
                     file_obj = open(video_info['file_path'], 'rb')
                     media_batch.append(
-                        InputMediaVideo(media=file_obj, caption=video_info['caption'])
+                        InputMediaVideo(
+                            media=file_obj, caption=video_info['caption'], parse_mode="HTML"
+                        )
                     )
 
                 try:
-                    await context.bot.send_media_group(chat_id=chat_id, media=media_batch)
+                    await context.bot.send_media_group(
+                        chat_id=chat_id, media=media_batch, parse_mode="HTML"
+                    )
                     logger.info(f"Sent video batch {i//10 + 1} with {len(batch_info)} videos")
                 finally:
                     # Close files for this batch
@@ -147,7 +169,7 @@ async def _send_media_files(
                     post_content if i == 0 and not photos and not videos else "📄 其他格式文件"
                 )
                 await context.bot.send_document(
-                    chat_id=chat_id, document=doc_file, caption=doc_caption
+                    chat_id=chat_id, document=doc_file, caption=doc_caption, parse_mode="HTML"
                 )
                 logger.info(f"Sent document: {doc_path}")
 
@@ -174,42 +196,23 @@ def _format_social_post_response(post) -> str:
     author = getattr(post, 'user_nickname', '')
 
     if title and author:
-        response_parts.append(f"{title} - {author}")
+        response_parts.append(f"<b>{title}</b> - {author}")
     elif title:
-        response_parts.append(f"{title}")
+        response_parts.append(f"<b>{title}</b>")
     elif author:
         response_parts.append(f"{author}")
-
-    # Description
-    if hasattr(post, 'desc') and post.desc:
-        # Limit description length for readability
-        desc = post.desc if len(post.desc) <= 200 else post.desc[:200] + "..."
-        response_parts.append(desc)
 
     # Published time
     if hasattr(post, 'published_time') and post.published_time:
         response_parts.append(f"{post.published_time}")
 
-    # Download summary (keep this for practical info)
-    download_results = getattr(post, 'download_results', None)
-    if download_results:
-        successful_downloads = [r for r in download_results if r['success']]
-        failed_downloads = [r for r in download_results if not r['success']]
-
-        total_size = sum(r['file_size'] for r in successful_downloads) / (1024 * 1024)
-
-        if successful_downloads:
-            response_parts.append(
-                f"媒体下载: {len(successful_downloads)}/{len(download_results)} 成功 "
-                f"(总计 {total_size:.1f}MB)"
-            )
-
-        if failed_downloads:
-            response_parts.append(f"{len(failed_downloads)} 个文件下载失败")
-
-    # Original link
-    if hasattr(post, 'url') and post.url:
-        response_parts.append(f"{post.url}")
+    # Description
+    if hasattr(post, 'desc') and post.desc:
+        # Limit description length for readability
+        desc = post.desc if len(post.desc) <= 200 else post.desc[:200] + "..."
+        desc = desc.replace("[话题]", "")
+        desc = f"<blockquote>{desc}</blockquote>"
+        response_parts.append(desc)
 
     return "\n\n".join(response_parts)
 
@@ -301,7 +304,7 @@ async def parse_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     await context.bot.send_message(
                         chat_id=chat.id,
                         text=reply_text,
-                        parse_mode='Markdown',
+                        parse_mode='HTML',
                         reply_to_message_id=message.message_id,
                     )
                     logger.debug(f"No media files to send for {parser.platform_id} post")
@@ -326,7 +329,7 @@ async def parse_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await context.bot.send_message(
             chat_id=chat.id,
             text=reply_text,
-            parse_mode='MarkdownV2',
+            parse_mode='HTML',
             reply_to_message_id=message.message_id,
         )
 

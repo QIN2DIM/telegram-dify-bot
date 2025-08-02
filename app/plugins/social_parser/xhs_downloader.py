@@ -85,6 +85,34 @@ class XhsDownloader(BaseSocialParser[XhsNoteDetail]):
         response = await self._client.post("/xhs/detail", json=payload)
         return XhsNoteDetail.from_response_json(response)
 
+    def _extract_resource_id(self, url: str) -> str:
+        """
+        Extract unique resource ID from XHS download URL
+
+        Args:
+            url: XHS resource download URL
+
+        Returns:
+            Unique resource identifier from URL path
+        """
+        try:
+            # Extract the last part of the URL path as unique ID
+            # Example: https://sns-video-bd.xhscdn.com/spectrum/1040g35031kffbsjs3q105n1klh0hq7js7mbn6io
+            # Returns: 1040g35031kffbsjs3q105n1klh0hq7js7mbn6io
+            from urllib.parse import urlparse
+
+            parsed_url = urlparse(url)
+            path_parts = parsed_url.path.strip('/').split('/')
+            if path_parts:
+                return path_parts[-1]
+            else:
+                # Fallback to last part of URL if no path
+                return url.split('/')[-1] if '/' in url else url
+        except Exception as e:
+            logger.debug(f"Failed to extract resource ID from URL {url}: {e}")
+            # Fallback to UUID if extraction fails
+            return uuid.uuid4().hex[:16]
+
     def _get_file_extension(
         self, note_type: str, content_disposition: str | None = None, url: str = ""
     ) -> str:
@@ -138,20 +166,47 @@ class XhsDownloader(BaseSocialParser[XhsNoteDetail]):
             download_dir = DATA_DIR / "downloads" / self.platform_id / post_id
             download_dir.mkdir(parents=True, exist_ok=True)
 
+            # Extract unique resource ID from URL
+            resource_id = self._extract_resource_id(download_url)
+
+            # Get file extension first to construct filename
+            file_extension = self._get_file_extension(post.type or "normal", None, download_url)
+
+            # Generate filename using resource ID instead of random UUID
+            unique_filename = f"{index:03d}_{resource_id}.{file_extension}"
+            local_path = download_dir / unique_filename
+
+            # Check if file already exists to avoid re-downloading
+            if local_path.exists():
+                file_size = local_path.stat().st_size
+                logger.info(
+                    f"Resource already exists, skipping download: {local_path} ({file_size} bytes)"
+                )
+                return {
+                    "success": True,
+                    "url": download_url,
+                    "local_path": str(local_path),
+                    "file_size": file_size,
+                    "index": index,
+                    "error": None,
+                    "skipped": True,  # Flag to indicate this was skipped
+                }
+
             # Download the file and get headers
             async with httpx.AsyncClient(timeout=settings.XHS_CONNECTION_TIMEOUT) as client:
                 response = await client.get(download_url)
                 response.raise_for_status()
 
-                # Determine file extension
+                # Update file extension based on actual response headers if available
                 content_disposition = response.headers.get('content-disposition')
-                file_extension = self._get_file_extension(
+                actual_extension = self._get_file_extension(
                     post.type or "normal", content_disposition, download_url
                 )
 
-                # Generate unique filename
-                unique_filename = f"{index:03d}_{uuid.uuid4().hex[:8]}.{file_extension}"
-                local_path = download_dir / unique_filename
+                # Update filename if extension changed
+                if actual_extension != file_extension:
+                    unique_filename = f"{index:03d}_{resource_id}.{actual_extension}"
+                    local_path = download_dir / unique_filename
 
                 # Write file to disk
                 local_path.write_bytes(response.content)
@@ -168,6 +223,7 @@ class XhsDownloader(BaseSocialParser[XhsNoteDetail]):
                     "file_size": file_size,
                     "index": index,
                     "error": None,
+                    "skipped": False,  # This was actually downloaded
                 }
 
         except Exception as e:
@@ -179,6 +235,7 @@ class XhsDownloader(BaseSocialParser[XhsNoteDetail]):
                 "file_size": 0,
                 "index": index,
                 "error": str(e),
+                "skipped": False,
             }
 
     async def _download_resources(self, post: XhsNoteDetail) -> List[Dict[str, Any]]:
@@ -225,18 +282,27 @@ class XhsDownloader(BaseSocialParser[XhsNoteDetail]):
                         "file_size": 0,
                         "index": i + 1,
                         "error": str(result),
+                        "skipped": False,
                     }
                 )
             else:
                 processed_results.append(result)
 
-        # Log summary
+        # Log summary with detailed breakdown
         successful_downloads = sum(1 for r in processed_results if r["success"])
+        new_downloads = sum(
+            1 for r in processed_results if r["success"] and not r.get("skipped", False)
+        )
+        skipped_downloads = sum(
+            1 for r in processed_results if r["success"] and r.get("skipped", False)
+        )
+        failed_downloads = sum(1 for r in processed_results if not r["success"])
         total_size = sum(r["file_size"] for r in processed_results if r["success"])
 
         logger.info(
             f"Download complete for {self.platform_id}: "
-            f"{successful_downloads}/{len(post.resource_list)} successful, "
+            f"{successful_downloads}/{len(post.resource_list)} successful "
+            f"({new_downloads} new, {skipped_downloads} skipped, {failed_downloads} failed), "
             f"total size: {total_size} bytes"
         )
 
