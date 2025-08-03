@@ -78,25 +78,34 @@ class SocialParserRegistry:
 
     def __init__(self):
         self._parsers: List[BaseSocialParser] = []
+        self._fallback_parsers: List[BaseSocialParser] = []
 
-    def register(self, parser: BaseSocialParser) -> None:
+    def register(self, parser: BaseSocialParser, is_fallback: bool = False) -> None:
         """Register a new social media parser"""
         if not parser.trigger_signal:
             raise ValueError(f"Parser {parser.__class__.__name__} must define trigger_signal")
 
-        self._parsers.append(parser)
+        if is_fallback:
+            self._fallback_parsers.append(parser)
+            parser_type = "fallback parser"
+        else:
+            self._parsers.append(parser)
+            parser_type = "parser"
 
         # Log registration with all trigger signals
         if isinstance(parser.trigger_signal, list):
             signals = ", ".join(parser.trigger_signal)
-            logger.info(f"Registered {parser.__class__.__name__} with triggers: [{signals}]")
+            logger.info(
+                f"Registered {parser.__class__.__name__} as {parser_type} with triggers: [{signals}]"
+            )
         else:
             logger.info(
-                f"Registered {parser.__class__.__name__} with trigger: {parser.trigger_signal}"
+                f"Registered {parser.__class__.__name__} as {parser_type} with trigger: {parser.trigger_signal}"
             )
 
     def get_parser(self, link: str) -> Optional[BaseSocialParser]:
-        """Get the appropriate parser for a given link using improved matching"""
+        """Get the appropriate parser for a given link, trying specific parsers first, then fallbacks"""
+        # First try specific parsers
         for parser in self._parsers:
             # Handle both single string and list of strings
             if isinstance(parser.trigger_signal, list):
@@ -107,16 +116,31 @@ class SocialParserRegistry:
                 # Legacy single string matching
                 if parser.trigger_signal in link:
                     return parser
+
+        # If no specific parser matches, try fallback parsers
+        for parser in self._fallback_parsers:
+            # For fallback parsers, we can be more liberal with matching
+            if isinstance(parser.trigger_signal, list):
+                # Check if any of the trigger signals match
+                if any(signal in link for signal in parser.trigger_signal):
+                    return parser
+            else:
+                # Legacy single string matching
+                if parser.trigger_signal in link:
+                    return parser
+
         return None
 
     def get_supported_platforms(self) -> List[str]:
         """Get list of supported platform names"""
-        return [parser.platform_id for parser in self._parsers]
+        platforms = [parser.platform_id for parser in self._parsers]
+        platforms.extend([parser.platform_id for parser in self._fallback_parsers])
+        return platforms
 
     def get_trigger_signals(self) -> List[str]:
         """Get list of all trigger signals for debugging"""
         signals = []
-        for parser in self._parsers:
+        for parser in self._parsers + self._fallback_parsers:
             if isinstance(parser.trigger_signal, list):
                 signals.extend(parser.trigger_signal)
             else:

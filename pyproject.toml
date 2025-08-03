@@ -1,6 +1,6 @@
 [project]
-name = "tg-translation-bot"
-version = "0.1.0"
+name = "qin2dimbot"
+version = "0.5.2"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -19,6 +19,7 @@ dependencies = [
     "sqlalchemy>=2.0.41",
     "sqlalchemy-utils>=0.41.2",
     "telegraph[aio]>=2.2.0",
+    "yt-dlp[default]>=2025.7.21",
 ]
 
 [tool.black]
