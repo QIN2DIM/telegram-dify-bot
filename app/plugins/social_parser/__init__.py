@@ -7,7 +7,7 @@
 """
 
 from .base import parser_registry, BaseSocialParser, BaseSocialPost
-from .xhs_downloader import XhsDownloader, XhsNoteDetail
+from .xhs import XhsDownloader, XhsNoteDetail
 
 
 # Auto-register all available parsers

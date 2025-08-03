@@ -31,8 +31,8 @@ T = TypeVar('T', bound=BaseSocialPost)
 class BaseSocialParser(ABC, Generic[T]):
     """Abstract base class for social media parsers"""
 
-    # Trigger signal to identify link types - must be overridden
-    trigger_signal: str = ""
+    # Trigger signals to identify link types - can be string or list of strings
+    trigger_signal: str | List[str] = ""
 
     # Platform identifier for file organization
     platform_id: str = "unknown"
@@ -85,13 +85,28 @@ class SocialParserRegistry:
             raise ValueError(f"Parser {parser.__class__.__name__} must define trigger_signal")
 
         self._parsers.append(parser)
-        logger.info(f"Registered {parser.__class__.__name__} with trigger: {parser.trigger_signal}")
+
+        # Log registration with all trigger signals
+        if isinstance(parser.trigger_signal, list):
+            signals = ", ".join(parser.trigger_signal)
+            logger.info(f"Registered {parser.__class__.__name__} with triggers: [{signals}]")
+        else:
+            logger.info(
+                f"Registered {parser.__class__.__name__} with trigger: {parser.trigger_signal}"
+            )
 
     def get_parser(self, link: str) -> Optional[BaseSocialParser]:
-        """Get the appropriate parser for a given link"""
+        """Get the appropriate parser for a given link using improved matching"""
         for parser in self._parsers:
-            if parser.trigger_signal in link:
-                return parser
+            # Handle both single string and list of strings
+            if isinstance(parser.trigger_signal, list):
+                # Check if any of the trigger signals match
+                if any(signal in link for signal in parser.trigger_signal):
+                    return parser
+            else:
+                # Legacy single string matching
+                if parser.trigger_signal in link:
+                    return parser
         return None
 
     def get_supported_platforms(self) -> List[str]:
@@ -99,8 +114,14 @@ class SocialParserRegistry:
         return [parser.platform_id for parser in self._parsers]
 
     def get_trigger_signals(self) -> List[str]:
-        """Get list of trigger signals for debugging"""
-        return [parser.trigger_signal for parser in self._parsers]
+        """Get list of all trigger signals for debugging"""
+        signals = []
+        for parser in self._parsers:
+            if isinstance(parser.trigger_signal, list):
+                signals.extend(parser.trigger_signal)
+            else:
+                signals.append(parser.trigger_signal)
+        return signals
 
 
 # Global registry instance
