@@ -5,6 +5,7 @@
 @GitHub  : https://github.com/QIN2DIM
 @Desc    : XHS (Xiaohongshu) social media parser implementation
 """
+import json
 import uuid
 from typing import List, Dict, Any
 
@@ -51,6 +52,9 @@ class XhsNoteDetail(BaseSocialPost):
         result = response.json()
         data = result["data"]
 
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+
+        # 图文、视频
         note_type = "video" if data.get("作品类型", "") == "视频" else "normal"
 
         return cls(
@@ -87,12 +91,8 @@ class XhsDownloader(BaseSocialParser[XhsNoteDetail]):
             base_url=settings.XHS_DOWNLOADER_BASE_URL, timeout=settings.XHS_CONNECTION_TIMEOUT
         )
 
-    async def _parse(self, share_link: str, **kwargs) -> XhsNoteDetail | None:
-        payload = {"url": share_link}
-        response = await self._client.post("/xhs/detail", json=payload)
-        return XhsNoteDetail.from_response_json(response)
-
-    def _extract_resource_id(self, url: str) -> str:
+    @staticmethod
+    def _extract_resource_id(url: str) -> str:
         """
         Extract unique resource ID from XHS download URL
 
@@ -120,8 +120,9 @@ class XhsDownloader(BaseSocialParser[XhsNoteDetail]):
             # Fallback to UUID if extraction fails
             return uuid.uuid4().hex[:16]
 
+    @staticmethod
     def _get_file_extension(
-        self, note_type: str, content_disposition: str | None = None, url: str = ""
+        note_type: str, content_disposition: str | None = None, url: str = ""
     ) -> str:
         """
         Determine file extension based on note type and HTTP headers
@@ -147,7 +148,7 @@ class XhsDownloader(BaseSocialParser[XhsNoteDetail]):
             except Exception as e:
                 logger.debug(f"Failed to parse Content-Disposition: {e}")
 
-        # Fall back to note type-based extension
+        # Fall back to note-type-based extension
         if note_type == "video":
             return "mp4"
         else:
@@ -314,6 +315,11 @@ class XhsDownloader(BaseSocialParser[XhsNoteDetail]):
         )
 
         return processed_results
+
+    async def _parse(self, share_link: str, **kwargs) -> XhsNoteDetail | None:
+        payload = {"url": share_link}
+        response = await self._client.post("/xhs/detail", json=payload)
+        return XhsNoteDetail.from_response_json(response)
 
     async def invoke(self, link: str, download: bool = False, **kwargs) -> XhsNoteDetail | None:
         """
