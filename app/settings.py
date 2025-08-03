@@ -20,6 +20,9 @@ CACHE_DIR = PROJECT_DIR.joinpath(".cache")
 LOG_DIR = PROJECT_DIR.joinpath("logs")
 DATA_DIR = PROJECT_DIR.joinpath("data")
 
+YT_DLP_DIR = DATA_DIR.joinpath("yt_dlp")
+YT_DLP_COOKIES = YT_DLP_DIR.joinpath("cookies")
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_ignore_empty=True, extra="ignore")
@@ -42,6 +45,8 @@ class Settings(BaseSettings):
         description="XHS Downloader base URL. Project: https://github.com/JoeanAmier/XHS-Downloader",
     )
     XHS_CONNECTION_TIMEOUT: int = Field(default=300)
+
+    YT_DLP_COOKIES_BILIBILI: Path = Field(default=YT_DLP_COOKIES.joinpath("bilibili.cookie"))
 
     SAFE_ZLIBRARY_WIKI_URL: str = Field(default="https://en.wikipedia.org/wiki/Z-Library")
 
@@ -185,6 +190,10 @@ class Settings(BaseSettings):
 
         if not self.TELEGRAPH_SHORT_NAME:
             self.TELEGRAPH_SHORT_NAME = f"{uuid4().hex[:8]}"
+
+        if not self.YT_DLP_COOKIES_BILIBILI.exists():
+            self.YT_DLP_COOKIES_BILIBILI.parent.mkdir(exist_ok=True, parents=True)
+            self.YT_DLP_COOKIES_BILIBILI.write_text("", encoding="utf-8")
 
     def get_default_application(self) -> Application:
         _base_builder = (
