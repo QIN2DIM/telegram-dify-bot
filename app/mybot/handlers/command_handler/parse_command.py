@@ -15,13 +15,21 @@ from telegram.ext import ContextTypes
 from plugins.social_parser import parser_registry
 from utils.image_compressor import compress_image_for_telegram
 
+# Constants for Telegram limits (in bytes)
+URL_LIMIT = 20 * 1024 * 1024  # 20MB
+PREVIEW_LIMIT = 50 * 1024 * 1024  # 50MB
+DOCUMENT_LIMIT = 2 * 1024 * 1024 * 1024  # 2GB
+
+# Telegram message limit is 4096 characters, use 90% as safe limit
+MAX_MESSAGE_LENGTH = int(4096 * 0.9)  # 3686 characters
+
 
 async def _send_or_edit_message(
     context, chat_id: int, text: str, progress_msg=None, reply_to_id=None
 ):
     """Send new message or edit existing progress message"""
     if progress_msg:
-        try:
+        with suppress(Exception):
             await context.bot.edit_message_text(
                 chat_id=chat_id,
                 message_id=progress_msg.message_id,
@@ -33,8 +41,6 @@ async def _send_or_edit_message(
                 parse_mode='HTML',
             )
             return
-        except Exception:
-            pass  # Fall through to send new message
 
     await context.bot.send_message(
         chat_id=chat_id, text=text, parse_mode='HTML', reply_to_message_id=reply_to_id
@@ -81,7 +87,7 @@ def _get_file_size(file_path: str) -> int:
 
 
 def _determine_send_method(file_path: str, media_type: str) -> str:
-    """Determine how to send file based on Telegram limits and file type
+    """Determine how to send a file based on Telegram limits and file type
 
     Telegram limits:
     - URL upload: 20MB
@@ -91,11 +97,6 @@ def _determine_send_method(file_path: str, media_type: str) -> str:
     Returns: 'photo', 'video', 'document', or 'compress_photo'
     """
     file_size = _get_file_size(file_path)
-
-    # Constants for Telegram limits (in bytes)
-    URL_LIMIT = 20 * 1024 * 1024  # 20MB
-    PREVIEW_LIMIT = 50 * 1024 * 1024  # 50MB
-    DOCUMENT_LIMIT = 2 * 1024 * 1024 * 1024  # 2GB
 
     if file_size > DOCUMENT_LIMIT:
         logger.warning(f"File {file_path} exceeds 2GB limit: {file_size} bytes")
@@ -226,20 +227,19 @@ async def _send_media_files(
                 documents, InputMediaDocument, first_group_msg_id
             )
 
-        # Delete progress message after all media files are sent successfully
+        # Delete a progress message after all media files are sent successfully
         if progress_msg:
-            try:
+            with suppress(Exception):
                 await context.bot.delete_message(
                     chat_id=chat_id, message_id=progress_msg.message_id
                 )
-            except Exception:
-                pass  # Message might already be deleted or not deletable
+            # Message might already be deleted or not deletable
 
     except Exception as e:
         error_text = f"❌ 媒体文件发送失败: {str(e)}\n\n但文件已成功下载到本地。"
-        # Try to edit progress message with error, or send new message if that fails
+        # Try to edit a progress message with error, or send a new message if that fails
         if progress_msg:
-            try:
+            with suppress(Exception):
                 await context.bot.edit_message_text(
                     chat_id=chat_id,
                     message_id=progress_msg.message_id,
@@ -247,8 +247,7 @@ async def _send_media_files(
                     parse_mode='HTML',
                 )
                 return
-            except Exception:
-                pass  # Fall through to send new message
+            # Fall through to send a new message
 
         await context.bot.send_message(
             chat_id=chat_id,
@@ -288,9 +287,6 @@ def _format_social_post_response(post) -> str:
         response_parts.append(desc)
 
     final_message = "\n\n".join(response_parts)
-
-    # Telegram message limit is 4096 characters, use 90% as safe limit
-    MAX_MESSAGE_LENGTH = int(4096 * 0.9)  # 3686 characters
 
     if len(final_message) > MAX_MESSAGE_LENGTH:
         # Find the description part to truncate
@@ -360,7 +356,7 @@ async def parse_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         if parser:
             # Parse content
             await _send_or_edit_message(
-                context, chat.id, f"📄 正在解析 {parser.platform_id} 内容...", progress_msg
+                context, chat.id, f"📥 正在解析 {parser.platform_id} 内容...", progress_msg
             )
             post = await parser.invoke(link, download=True)
 
