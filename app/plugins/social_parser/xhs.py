@@ -71,7 +71,14 @@ class XhsNoteDetail(BaseSocialPost):
 class XhsDownloader(BaseSocialParser[XhsNoteDetail]):
     """XHS (Xiaohongshu) content parser and downloader"""
 
-    trigger_signal = "https://www.xiaohongshu.com/"
+    # Support multiple XHS link formats
+    trigger_signal = [
+        "https://www.xiaohongshu.com/",
+        "https://xhslink.com/",
+        "http://xhslink.com/",
+        "xiaohongshu.com",
+        "xhslink.com",
+    ]
     platform_id = "xhs"
 
     def __init__(self):
