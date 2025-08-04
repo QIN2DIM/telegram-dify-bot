@@ -6,7 +6,8 @@
       "Bash(mkdir:*)",
       "Bash(black:*)",
       "Bash(ruff check:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

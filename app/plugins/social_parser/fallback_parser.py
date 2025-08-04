@@ -160,6 +160,12 @@ class YtDlpParser(BaseSocialParser[YtDlpPostDetail]):
         # Only add necessary options for download path when actually downloading
         if not extract_only:
             opts['outtmpl'] = str(download_dir / '%(title)s-%(id)s.%(ext)s')
+            
+            # Prioritize high-quality MP4 format for better Telegram compatibility
+            # First try: Download best MP4 video with best M4A audio
+            # Fallback: Download best quality and convert to MP4
+            opts['format'] = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/bestvideo+bestaudio/best'
+            opts['merge_output_format'] = 'mp4'
 
         return opts
 

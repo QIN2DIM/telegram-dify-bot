@@ -14,7 +14,6 @@ from telegram import ReactionTypeEmoji, Update
 from telegram.ext import ContextTypes
 
 from mybot.task_manager import non_blocking_handler
-from mybot.services.instant_view_service import try_send_as_instant_view
 from mybot.services.telegram_media_service import TelegramMediaService
 from mybot.services.message_formatter import MessageFormatter
 from plugins.social_parser import parser_registry
@@ -96,17 +95,13 @@ async def _send_media_progress_callback(context, chat_id, progress_msg):
 async def _handle_long_caption(bot, chat_id, message_id, caption):
     """Handle caption that's too long for Telegram"""
     try:
-        success = await try_send_as_instant_view(
-            bot=bot, chat_id=chat_id, message_id=message_id, content=caption, title="媒体文件详情"
+        # Send as separate message
+        await bot.send_message(
+            chat_id=chat_id,
+            text=f"📄 媒体文件详情：\n\n{caption}",
+            parse_mode="HTML",
+            reply_to_message_id=message_id,
         )
-        if not success:
-            # Fallback: send as separate message
-            await bot.send_message(
-                chat_id=chat_id,
-                text=f"📄 媒体文件详情：\n\n{caption}",
-                parse_mode="HTML",
-                reply_to_message_id=message_id,
-            )
     except Exception as e:
         logger.warning(f"Failed to handle long caption: {e}")
 
