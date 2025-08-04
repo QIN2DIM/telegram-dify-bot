@@ -86,6 +86,55 @@ def _get_file_size(file_path: str) -> int:
     return Path(file_path).stat().st_size
 
 
+def _format_download_summary(download_results: list) -> str:
+    """Format download summary with file information for progress message"""
+    successful_downloads = [r for r in download_results if r.get('success') and r.get('local_path')]
+    if not successful_downloads:
+        return "📥 没有成功下载的文件"
+
+    lines = ["📥 已下载的文件：\n"]
+
+    for i, result in enumerate(successful_downloads, 1):
+        file_path = Path(result['local_path'])
+        if not file_path.exists():
+            continue
+
+        # Get file info
+        file_size = file_path.stat().st_size
+        extension = file_path.suffix.upper().lstrip('.') or 'FILE'
+
+        # Format size
+        if file_size >= 1024 * 1024 * 1024:  # >= 1GB
+            size_str = f"{file_size / (1024 * 1024 * 1024):.2f} GiB"
+        elif file_size >= 1024 * 1024:  # >= 1MB
+            size_str = f"{file_size / (1024 * 1024):.2f} MiB"
+        elif file_size >= 1024:  # >= 1KB
+            size_str = f"{file_size / 1024:.2f} KiB"
+        else:
+            size_str = f"{file_size} B"
+
+        # Format: 1. JPG - 2.45 MiB
+        lines.append(f"{i}. {extension} - {size_str}")
+
+    # Add total summary
+    total_size = sum(
+        Path(r['local_path']).stat().st_size
+        for r in successful_downloads
+        if r.get('local_path') and Path(r['local_path']).exists()
+    )
+
+    if total_size >= 1024 * 1024 * 1024:
+        total_size_str = f"{total_size / (1024 * 1024 * 1024):.2f} GiB"
+    elif total_size >= 1024 * 1024:
+        total_size_str = f"{total_size / (1024 * 1024):.2f} MiB"
+    else:
+        total_size_str = f"{total_size / 1024:.2f} KiB"
+
+    lines.append(f"\n📊 总计: {len(successful_downloads)} 个文件, {total_size_str}")
+
+    return "\n".join(lines)
+
+
 def _determine_send_method(file_path: str, media_type: str) -> str:
     """Determine how to send a file based on Telegram limits and file type
 
@@ -99,7 +148,8 @@ def _determine_send_method(file_path: str, media_type: str) -> str:
     file_size = _get_file_size(file_path)
 
     if file_size > DOCUMENT_LIMIT:
-        logger.warning(f"File {file_path} exceeds 2GB limit: {file_size} bytes")
+        file_size_gib = file_size / (1024 * 1024 * 1024)
+        logger.warning(f"File {file_path} exceeds 2GB limit: {file_size_gib:.2f} GiB")
         return 'document'  # Still try as document, but will likely fail
 
     if media_type == 'photo':
@@ -121,6 +171,57 @@ def _determine_send_method(file_path: str, media_type: str) -> str:
 
     else:
         return 'document'
+
+
+async def _cleanup_files(download_results: list, compressed_files: list) -> None:
+    """Clean up downloaded files and compressed files after successful sending"""
+    # Clean up compressed files first
+    for file_path in compressed_files:
+        try:
+            if Path(file_path).exists():
+                Path(file_path).unlink()
+                logger.debug(f"Cleaned up compressed file: {file_path}")
+        except Exception as e:
+            logger.warning(f"Failed to clean up compressed file {file_path}: {e}")
+
+    # Clean up downloaded files
+    cleaned_dirs = set()
+    for result in download_results:
+        if result.get('success') and result.get('local_path'):
+            file_path = Path(result['local_path'])
+            try:
+                if file_path.exists():
+                    # Get parent directory
+                    parent_dir = file_path.parent
+
+                    # Delete the file
+                    file_path.unlink()
+                    logger.debug(f"Cleaned up downloaded file: {file_path}")
+
+                    # Track parent directories for cleanup
+                    cleaned_dirs.add(parent_dir)
+            except Exception as e:
+                logger.warning(f"Failed to clean up file {file_path}: {e}")
+
+    # Clean up empty directories
+    for dir_path in cleaned_dirs:
+        try:
+            # Only remove if directory is empty
+            if dir_path.exists() and not any(dir_path.iterdir()):
+                dir_path.rmdir()
+                logger.debug(f"Removed empty directory: {dir_path}")
+
+                # Try to clean up parent directories if empty
+                parent = dir_path.parent
+                while parent.name not in ['downloads', 'data'] and parent.exists():
+                    if not any(parent.iterdir()):
+                        parent.rmdir()
+                        logger.debug(f"Removed empty parent directory: {parent}")
+                        parent = parent.parent
+                    else:
+                        break
+        except Exception as e:
+            logger.warning(f"Failed to clean up directory {dir_path}: {e}")
 
 
 async def _send_media_files(
@@ -212,9 +313,19 @@ async def _send_media_files(
     try:
         total_files = len(photos) + len(videos) + len(documents)
         if progress_msg and total_files > 0:
-            await _send_or_edit_message(
-                context, chat_id, f"📤 正在发送 {total_files} 个媒体文件...", progress_msg
-            )
+            # Build detailed sending info
+            sending_info = ["📤 正在发送媒体文件：\n"]
+
+            if photos:
+                sending_info.append(f"🇿️ 图片: {len(photos)} 个")
+            if videos:
+                sending_info.append(f"🎥 视频: {len(videos)} 个")
+            if documents:
+                sending_info.append(f"📄 文档: {len(documents)} 个")
+
+            sending_info.append(f"\n📊 总计: {total_files} 个文件")
+
+            await _send_or_edit_message(context, chat_id, "\n".join(sending_info), progress_msg)
 
         first_group_msg_id = None
 
@@ -234,6 +345,9 @@ async def _send_media_files(
                     chat_id=chat_id, message_id=progress_msg.message_id
                 )
             # Message might already be deleted or not deletable
+
+        # Clean up downloaded files and compressed files after successful sending
+        await _cleanup_files(successful_downloads, compressed_files)
 
     except Exception as e:
         error_text = f"❌ 媒体文件发送失败: {str(e)}\n\n但文件已成功下载到本地。"
@@ -350,7 +464,7 @@ async def parse_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     try:
         # Get parser
-        await _send_or_edit_message(context, chat.id, "🔍 识别平台类型...", progress_msg)
+        # await _send_or_edit_message(context, chat.id, "🔍 识别平台类型...", progress_msg)
         parser = parser_registry.get_parser(link)
 
         if parser:
@@ -365,8 +479,16 @@ async def parse_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 download_results = getattr(post, 'download_results', None)
 
                 if download_results and any(r.get('success') for r in download_results):
+                    # Show download summary with file details
+                    download_summary = _format_download_summary(download_results)
+                    await _send_or_edit_message(context, chat.id, download_summary, progress_msg)
+                    # Brief pause to let user see the summary
+                    import asyncio
+
+                    await asyncio.sleep(1.5)
+
                     await _send_or_edit_message(
-                        context, chat.id, "📥 正在处理媒体文件...", progress_msg
+                        context, chat.id, "📤 正在发送媒体文件...", progress_msg
                     )
                     await _send_media_files(
                         context,

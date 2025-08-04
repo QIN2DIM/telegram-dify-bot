@@ -187,8 +187,9 @@ class XhsDownloader(BaseSocialParser[XhsNoteDetail]):
             # Check if file already exists to avoid re-downloading
             if local_path.exists():
                 file_size = local_path.stat().st_size
+                file_size_mib = file_size / (1024 * 1024)
                 logger.info(
-                    f"Resource already exists, skipping download: {local_path} ({file_size} bytes)"
+                    f"Resource already exists, skipping download: {local_path} ({file_size_mib:.2f} MiB)"
                 )
                 return {
                     "success": True,
@@ -220,8 +221,9 @@ class XhsDownloader(BaseSocialParser[XhsNoteDetail]):
                 local_path.write_bytes(response.content)
 
                 file_size = len(response.content)
+                file_size_mib = file_size / (1024 * 1024)
                 logger.info(
-                    f"Downloaded {self.platform_id} resource: {local_path} ({file_size} bytes)"
+                    f"Downloaded {self.platform_id} resource: {local_path} ({file_size_mib:.2f} MiB)"
                 )
 
                 return {
@@ -307,11 +309,12 @@ class XhsDownloader(BaseSocialParser[XhsNoteDetail]):
         failed_downloads = sum(1 for r in processed_results if not r["success"])
         total_size = sum(r["file_size"] for r in processed_results if r["success"])
 
+        total_size_mib = total_size / (1024 * 1024)
         logger.info(
             f"Download complete for {self.platform_id}: "
             f"{successful_downloads}/{len(post.resource_list)} successful "
             f"({new_downloads} new, {skipped_downloads} skipped, {failed_downloads} failed), "
-            f"total size: {total_size} bytes"
+            f"total size: {total_size_mib:.2f} MiB"
         )
 
         return processed_results

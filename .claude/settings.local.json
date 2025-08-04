@@ -3,7 +3,9 @@
     "allow": [
       "mcp__context7__resolve-library-id",
       "mcp__context7__get-library-docs",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(black:*)",
+      "Bash(ruff check:*)"
     ],
     "deny": []
   }
