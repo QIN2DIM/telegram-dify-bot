@@ -99,7 +99,7 @@ services:
 #    ports:
 #      - "8081:8081"
     volumes:
-      - telegram-bot-api-data:/var/lib/telegram-bot-api
+      - "./volumes/telegram-bot-api-data:/var/lib/telegram-bot-api"
     environment:
       - TELEGRAM_API_ID=${TELEGRAM_API_ID}
       - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
