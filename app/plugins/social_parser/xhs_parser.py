@@ -15,7 +15,7 @@ from pydantic import Field
 from loguru import logger
 
 from settings import settings, DATA_DIR
-from .base import BaseSocialPost, BaseSocialParser
+from plugins.social_parser.base import BaseSocialPost, BaseSocialParser
 
 
 class XhsNoteDetail(BaseSocialPost):

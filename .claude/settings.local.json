@@ -5,7 +5,9 @@
       "mcp__context7__get-library-docs",
       "Bash(mkdir:*)",
       "Bash(black:*)",
-      "Bash(ruff check:*)"
+      "Bash(ruff check:*)",
+      "Bash(python:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

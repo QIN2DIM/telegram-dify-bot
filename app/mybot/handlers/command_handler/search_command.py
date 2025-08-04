@@ -14,6 +14,7 @@ from telegram.ext import ContextTypes
 from dify.models import ForcedCommand
 from models import Interaction, TaskType
 from mybot.common import _download_photos_from_message
+from mybot.task_manager import non_blocking_handler
 from mybot.services import dify_service, response_service
 
 
@@ -28,6 +29,7 @@ def _extract_search_query(args: list) -> str:
     return " ".join(filtered_args).strip()
 
 
+@non_blocking_handler("search_command")
 async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """智能搜索命令，使用 Dify 大模型服务提供搜索结果"""
 

@@ -87,21 +87,8 @@ class SocialParserRegistry:
 
         if is_fallback:
             self._fallback_parsers.append(parser)
-            parser_type = "fallback parser"
         else:
             self._parsers.append(parser)
-            parser_type = "parser"
-
-        # Log registration with all trigger signals
-        if isinstance(parser.trigger_signal, list):
-            signals = ", ".join(parser.trigger_signal)
-            logger.info(
-                f"Registered {parser.__class__.__name__} as {parser_type} with triggers: [{signals}]"
-            )
-        else:
-            logger.info(
-                f"Registered {parser.__class__.__name__} as {parser_type} with trigger: {parser.trigger_signal}"
-            )
 
     def get_parser(self, link: str) -> Optional[BaseSocialParser]:
         """Get the appropriate parser for a given link, trying specific parsers first, then fallbacks"""
