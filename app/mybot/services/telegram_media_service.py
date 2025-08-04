@@ -4,7 +4,7 @@ Telegram media handling service for sending photos, videos, and documents
 """
 from contextlib import suppress
 from pathlib import Path
-from typing import List, Dict, Literal, Optional, Union
+from typing import List, Dict, Literal, Optional
 
 from loguru import logger
 from telegram import Bot, InputMediaPhoto, InputMediaVideo, InputMediaDocument
