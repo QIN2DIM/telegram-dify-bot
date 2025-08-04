@@ -270,9 +270,10 @@ class YtDlpParser(BaseSocialParser[YtDlpPostDetail]):
             successful_downloads = sum(1 for r in download_results if r["success"])
             total_size = sum(r["file_size"] for r in download_results if r["success"])
 
+            total_size_mib = total_size / (1024 * 1024)
             logger.info(
                 f"yt-dlp download complete: {successful_downloads}/{len(download_results)} successful, "
-                f"total size: {total_size} bytes"
+                f"total size: {total_size_mib:.2f} MiB"
             )
 
             return download_results
