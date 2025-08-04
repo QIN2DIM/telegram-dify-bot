@@ -94,6 +94,8 @@ services:
     image: aiogram/telegram-bot-api:latest
     container_name: telegram-bot-api
     restart: unless-stopped
+    networks:
+      - app-network
 #    ports:
 #      - "8081:8081"
     volumes:
