@@ -31,6 +31,10 @@ class Settings(BaseSettings):
         default="", description="Get the bot's API_TOKEN from https://t.me/BotFather"
     )
 
+    TELEGRAM_BOT_API_URL: str = Field(default="http://telegram-bot-api:8081")
+
+    ENABLE_TELEGRAM_BOT_LOCAL_MODE: bool = Field(default=True)
+
     DIFY_APP_BASE_URL: str = Field(
         default="https://api.dify.ai/v1", description="Dify Workflow backend connection"
     )
@@ -195,6 +199,8 @@ class Settings(BaseSettings):
             self.YT_DLP_COOKIES_BILIBILI.parent.mkdir(exist_ok=True, parents=True)
             self.YT_DLP_COOKIES_BILIBILI.write_text("", encoding="utf-8")
 
+        self.TELEGRAM_BOT_API_URL = self.TELEGRAM_BOT_API_URL.rstrip("/")
+
     def get_default_application(self) -> Application:
         _base_builder = (
             Application.builder()
@@ -202,7 +208,12 @@ class Settings(BaseSettings):
             .connect_timeout(self.HTTP_REQUEST_TIMEOUT)
             .write_timeout(self.HTTP_REQUEST_TIMEOUT)
             .read_timeout(self.HTTP_REQUEST_TIMEOUT)
+            # Note: local_mode needs to be used with a local Bot API server.
+            # If you are not running a local server, set local_mode to False
+            .base_url(f"{self.TELEGRAM_BOT_API_URL}/bot")
+            .local_mode(True)
         )
+
         if proxy_url := getproxies().get("http"):
             logger.success(f"Using proxy: {proxy_url}")
             application = _base_builder.proxy(proxy_url).get_updates_proxy(proxy_url).build()
