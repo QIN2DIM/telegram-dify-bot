@@ -12,16 +12,20 @@ from loguru import logger
 from telegram import ReactionTypeEmoji, Update, InputMediaPhoto, InputMediaVideo, InputMediaDocument
 from telegram.ext import ContextTypes
 
+from mybot.services.instant_view_service import try_send_as_instant_view
 from plugins.social_parser import parser_registry
 from utils.image_compressor import compress_image_for_telegram
 
 # Constants for Telegram limits (in bytes)
 URL_LIMIT = 20 * 1024 * 1024  # 20MB
 PREVIEW_LIMIT = 50 * 1024 * 1024  # 50MB
+VIDEO_LIMIT = 2 * 1024 * 1024 * 1024  # 2GB for local mode
 DOCUMENT_LIMIT = 2 * 1024 * 1024 * 1024  # 2GB
 
 # Telegram message limit is 4096 characters, use 90% as safe limit
 MAX_MESSAGE_LENGTH = int(4096 * 0.9)  # 3686 characters
+# Telegram caption limit is 1024 characters
+MAX_CAPTION_LENGTH = 1024
 
 
 async def _send_or_edit_message(
@@ -138,9 +142,10 @@ def _format_download_summary(download_results: list) -> str:
 def _determine_send_method(file_path: str, media_type: str) -> str:
     """Determine how to send a file based on Telegram limits and file type
 
-    Telegram limits:
+    Telegram limits (local mode):
     - URL upload: 20MB
-    - Preview (photo/video): 50MB
+    - Preview (photo): 50MB
+    - Video: 2GB (local mode)
     - Document: 2GB
 
     Returns: 'photo', 'video', 'document', or 'compress_photo'
@@ -163,11 +168,24 @@ def _determine_send_method(file_path: str, media_type: str) -> str:
             return 'document'
 
     elif media_type == 'video':
-        if file_size <= PREVIEW_LIMIT:
-            return 'video'
+        file_extension = Path(file_path).suffix.lower()
+        # WebM format doesn't support streaming in Telegram, suggest conversion
+        if file_extension == '.webm':
+            logger.info(
+                f"WebM file detected: {file_path} - WebM doesn't support streaming in Telegram"
+            )
+            # Still send as video but user should know about the limitation
+            if file_size <= VIDEO_LIMIT:
+                return 'video'
+            else:
+                return 'document'
         else:
-            # For videos >50MB, send as document
-            return 'document'
+            # MP4 and other formats with streaming support
+            if file_size <= VIDEO_LIMIT:
+                return 'video'
+            else:
+                # For videos >2GB, send as document (though likely to fail)
+                return 'document'
 
     else:
         return 'document'
@@ -273,15 +291,64 @@ async def _send_media_files(
     async def _send_batch(media_list, media_class, first_group_msg_id=None):
         """Send media in batches, with subsequent batches replying to first batch"""
         current_first_msg_id = first_group_msg_id
+        long_caption_msg_id = None
 
         for i in range(0, len(media_list), 10):
             batch = media_list[i : i + 10]
             media_batch = []
+            long_caption_item = None
+
             for item in batch:
                 file_obj = open(item['file_path'], 'rb')
-                media_batch.append(
-                    media_class(media=file_obj, caption=item['caption'], parse_mode="HTML")
-                )
+                caption = item['caption']
+
+                # Check if caption is too long
+                if caption and len(caption) > MAX_CAPTION_LENGTH:
+                    # Store the long caption item for instant view handling
+                    if not long_caption_item:
+                        long_caption_item = item
+                    # Send without caption first
+                    if media_class == InputMediaVideo:
+                        # Check if it's WebM format (doesn't support streaming)
+                        is_webm = Path(item['file_path']).suffix.lower() == '.webm'
+                        if is_webm:
+                            media_batch.append(
+                                media_class(media=file_obj, caption="", parse_mode="HTML")
+                            )
+                        else:
+                            media_batch.append(
+                                media_class(
+                                    media=file_obj,
+                                    caption="",
+                                    parse_mode="HTML",
+                                    supports_streaming=True,
+                                )
+                            )
+                    else:
+                        media_batch.append(
+                            media_class(media=file_obj, caption="", parse_mode="HTML")
+                        )
+                else:
+                    if media_class == InputMediaVideo:
+                        # Check if it's WebM format (doesn't support streaming)
+                        is_webm = Path(item['file_path']).suffix.lower() == '.webm'
+                        if is_webm:
+                            media_batch.append(
+                                media_class(media=file_obj, caption=caption, parse_mode="HTML")
+                            )
+                        else:
+                            media_batch.append(
+                                media_class(
+                                    media=file_obj,
+                                    caption=caption,
+                                    parse_mode="HTML",
+                                    supports_streaming=True,
+                                )
+                            )
+                    else:
+                        media_batch.append(
+                            media_class(media=file_obj, caption=caption, parse_mode="HTML")
+                        )
 
             try:
                 # For the first batch, reply to original message. For later batches, reply to the first batch
@@ -302,6 +369,29 @@ async def _send_media_files(
                 # Track first message ID for subsequent batches to reply to
                 if i == 0 and sent_messages and not current_first_msg_id:
                     current_first_msg_id = sent_messages[0].message_id
+
+                # Handle long caption using instant view
+                if long_caption_item and sent_messages:
+                    try:
+                        success = await try_send_as_instant_view(
+                            bot=context.bot,
+                            chat_id=chat_id,
+                            message_id=sent_messages[0].message_id,
+                            content=long_caption_item['caption'],
+                            title="媒体文件详情",
+                        )
+                        if success:
+                            long_caption_msg_id = sent_messages[0].message_id
+                        else:
+                            # Fallback: send as separate message
+                            await context.bot.send_message(
+                                chat_id=chat_id,
+                                text=f"📄 媒体文件详情：\n\n{long_caption_item['caption']}",
+                                parse_mode="HTML",
+                                reply_to_message_id=sent_messages[0].message_id,
+                            )
+                    except Exception as e:
+                        logger.warning(f"Failed to handle long caption: {e}")
 
             finally:
                 for media in media_batch:
