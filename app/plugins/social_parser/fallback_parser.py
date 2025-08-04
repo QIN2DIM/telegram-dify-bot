@@ -11,13 +11,14 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+from urllib.parse import urlparse
 
 from loguru import logger
 from pydantic import Field
 from yt_dlp import YoutubeDL
 
-from settings import settings, DATA_DIR
-from .base import BaseSocialPost, BaseSocialParser
+from plugins.social_parser.base import BaseSocialPost, BaseSocialParser
+from settings import DATA_DIR, YT_DLP_COOKIES
 
 
 class YtDlpPostDetail(BaseSocialPost):
@@ -81,16 +82,80 @@ class YtDlpParser(BaseSocialParser[YtDlpPostDetail]):
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="yt-dlp")
 
     @staticmethod
-    def _get_yt_dlp_opts(download_dir: Path, extract_only: bool = False) -> Dict[str, Any]:
-        """Get yt-dlp configuration options - minimal setup following working demo"""
+    def _extract_domain_from_url(url: str) -> Optional[str]:
+        """Extract domain from URL for cookie file matching"""
+        try:
+            parsed = urlparse(url)
+            domain = parsed.netloc.lower()
+            # Remove www. prefix if present
+            if domain.startswith('www.'):
+                domain = domain[4:]
+            return domain
+        except Exception:
+            return None
+
+    @staticmethod
+    def _find_cookie_file(url: str) -> Optional[Path]:
+        """Find appropriate cookie file based on URL domain"""
+        domain = YtDlpParser._extract_domain_from_url(url)
+        logger.debug(f"{domain=}")
+
+        if not domain:
+            return None
+
+        # Define priority order for cookie file lookup
+        # 1. Full domain match (e.g., twitter.com.cookie)
+        # 2. Main domain match (e.g., twitter.cookie for twitter.com)
+        # 3. Special cases (youtube.com -> youtube.cookie, youtu.be -> youtube.cookie)
+
+        cookie_candidates = []
+
+        # Full domain match
+        cookie_candidates.append(YT_DLP_COOKIES / f"{domain}.cookie")
+
+        # Extract main domain (without TLD) for simplified matching
+        main_domain = domain.split('.')[0]
+        if main_domain != domain:
+            cookie_candidates.append(YT_DLP_COOKIES / f"{main_domain}.cookie")
+
+        # Special cases mapping
+        domain_mapping = {
+            'youtu.be': 'youtube',
+            'youtube.com': 'youtube',
+            'bilibili.com': 'bilibili',
+            'b23.tv': 'bilibili',  # Bilibili short link
+            'twitter.com': 'twitter',
+            'x.com': 'twitter',  # X (formerly Twitter)
+            'instagram.com': 'instagram',
+            'tiktok.com': 'tiktok',
+        }
+
+        if domain in domain_mapping:
+            mapped_name = domain_mapping[domain]
+            cookie_candidates.append(YT_DLP_COOKIES / f"{mapped_name}.cookie")
+
+        # Check each candidate in order
+        for cookie_path in cookie_candidates:
+            if cookie_path.exists() and cookie_path.stat().st_size > 0:
+                logger.info(f"Found cookie file for {domain}: {cookie_path.name}")
+                return cookie_path
+
+        return None
+
+    @staticmethod
+    def _get_yt_dlp_opts(
+        download_dir: Path, extract_only: bool = False, url: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Get yt-dlp configuration options with flexible cookie support"""
         opts = {}
 
-        # Add cookies if available for bilibili
-        if (
-            settings.YT_DLP_COOKIES_BILIBILI.exists()
-            and settings.YT_DLP_COOKIES_BILIBILI.stat().st_size > 0
-        ):
-            opts['cookiefile'] = str(settings.YT_DLP_COOKIES_BILIBILI)
+        # Always try to load appropriate cookie file when URL is provided
+        # Some sites (like YouTube) require cookies even for info extraction
+        if url:
+            cookie_file = YtDlpParser._find_cookie_file(url)
+            if cookie_file:
+                opts['cookiefile'] = str(cookie_file)
+                logger.info(f"Using cookie file: {cookie_file.name}")
 
         # Only add necessary options for download path when actually downloading
         if not extract_only:
@@ -102,17 +167,16 @@ class YtDlpParser(BaseSocialParser[YtDlpPostDetail]):
         self, url: str, download_dir: Path, extract_only: bool = False
     ) -> Optional[Dict[str, Any]]:
         """Synchronous yt-dlp info extraction/download (runs in thread)"""
-        opts = self._get_yt_dlp_opts(download_dir, extract_only)
+        # Pass URL to opts for cookie loading during download
+        opts = self._get_yt_dlp_opts(download_dir, extract_only, url)
 
         try:
             with YoutubeDL(opts) as ydl:
                 if extract_only:
                     info = ydl.extract_info(url, download=False)
                 else:
-                    # Use ydl.download() for actual downloading, like in the demo
-                    ydl.download([url])
-                    # Still need to extract info for metadata
                     info = ydl.extract_info(url, download=False)
+                    ydl.download([url])
                 return info
         except Exception as e:
             logger.error(f"yt-dlp failed to process {url}: {e}")

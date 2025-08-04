@@ -50,7 +50,8 @@ class Settings(BaseSettings):
     )
     XHS_CONNECTION_TIMEOUT: int = Field(default=300)
 
-    YT_DLP_COOKIES_BILIBILI: Path = Field(default=YT_DLP_COOKIES.joinpath("bilibili.cookie"))
+    # Cookie files directory for various video sources
+    # Expected format: {domain}.cookie (e.g., youtube.cookie, bilibili.cookie, twitter.com.cookie)
 
     SAFE_ZLIBRARY_WIKI_URL: str = Field(default="https://en.wikipedia.org/wiki/Z-Library")
 
@@ -95,7 +96,7 @@ class Settings(BaseSettings):
 
     # New: HTTP request timeout configuration
     HTTP_REQUEST_TIMEOUT: float = Field(
-        default=75.0,
+        default=3600,
         description="HTTP request timeout (seconds), used for Telegram API calls. Default 75 seconds. "
         "The default value at the interface layer is 5 seconds, here we increase this value to support bot responses to some larger full-modal media groups, such as: documents and audio/video",
     )
@@ -195,9 +196,9 @@ class Settings(BaseSettings):
         if not self.TELEGRAPH_SHORT_NAME:
             self.TELEGRAPH_SHORT_NAME = f"{uuid4().hex[:8]}"
 
-        if not self.YT_DLP_COOKIES_BILIBILI.exists():
-            self.YT_DLP_COOKIES_BILIBILI.parent.mkdir(exist_ok=True, parents=True)
-            self.YT_DLP_COOKIES_BILIBILI.write_text("", encoding="utf-8")
+        # Ensure cookies directory exists
+        if not YT_DLP_COOKIES.exists():
+            YT_DLP_COOKIES.mkdir(exist_ok=True, parents=True)
 
         self.TELEGRAM_BOT_API_URL = self.TELEGRAM_BOT_API_URL.rstrip("/")
 
