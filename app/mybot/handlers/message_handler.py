@@ -9,6 +9,7 @@ from loguru import logger
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from mybot.task_manager import non_blocking_handler
 from mybot.services import interaction_service, context_service, dify_service, response_service
 from mybot.handlers.command_handler.search_command import search_command
 from settings import settings
@@ -68,6 +69,7 @@ async def _handle_media_command(
     return False
 
 
+@non_blocking_handler("handle_message")
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Orchestrates the bot's response to a new message.

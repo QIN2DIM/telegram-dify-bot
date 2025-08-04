@@ -9,6 +9,8 @@
 from telegram import Update, ForceReply
 from telegram.ext import ContextTypes
 
+from mybot.task_manager import non_blocking_handler
+
 START_TPL = """
 你好，我是 @{username}，一个部署在 Telegram 群聊中的 AI 助手。
 
@@ -16,6 +18,7 @@ START_TPL = """
 """
 
 
+@non_blocking_handler("start_command")
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     bot_username = context.bot.username

@@ -15,6 +15,7 @@ from telegram import Update, BotCommand
 from telegram.ext import CommandHandler, MessageHandler, filters
 
 from mybot.common import cleanup_old_photos, cleanup_old_social_downloads
+from mybot.task_manager import wait_for_all_tasks, cancel_all_tasks, get_active_tasks_count
 from mybot.handlers.command_handler import (
     start_command,
     help_command,
@@ -71,6 +72,8 @@ def main() -> None:
     if settings.ENABLE_TEST_MODE:
         logger.warning("🪄 测试模式已启动")
 
+    logger.success("⚡ 非阻塞任务处理系统已启用 - 所有指令和消息处理将并发执行")
+
     # 定期清理旧的下载文件（每次重启时都尝试清理）
     with suppress(Exception):
         cleanup_old_photos(max_age_hours=24)
@@ -98,6 +101,37 @@ def main() -> None:
     # Setting up a graceful shutdown
     def shutdown_handler(signum, frame):
         logger.info("Receiving a shutdown signal that is stopping the scheduler...")
+
+        # Check for active background tasks
+        active_count = get_active_tasks_count()
+        if active_count > 0:
+            logger.info(f"Waiting for {active_count} active tasks to complete...")
+
+            # Try to wait for tasks to complete gracefully
+            import asyncio
+
+            try:
+                # Create new event loop for shutdown if needed
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+                # Wait up to 30 seconds for tasks to complete
+                completed = loop.run_until_complete(wait_for_all_tasks(timeout=30.0))
+
+                if not completed:
+                    logger.warning(
+                        "Some tasks did not complete in time, cancelling remaining tasks..."
+                    )
+                    cancel_all_tasks()
+                else:
+                    logger.info("All tasks completed successfully")
+
+                loop.close()
+
+            except Exception as e:
+                logger.error(f"Error during graceful shutdown: {e}")
+                cancel_all_tasks()
+
         sys.exit(0)
 
     signal.signal(signal.SIGINT, shutdown_handler)

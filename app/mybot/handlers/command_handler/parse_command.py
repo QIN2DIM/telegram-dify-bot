@@ -5,6 +5,7 @@
 @GitHub  : https://github.com/QIN2DIM
 @Desc    : Parse social media links and automatically download media resources
 """
+import asyncio
 from contextlib import suppress
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from loguru import logger
 from telegram import ReactionTypeEmoji, Update, InputMediaPhoto, InputMediaVideo, InputMediaDocument
 from telegram.ext import ContextTypes
 
+from mybot.task_manager import non_blocking_handler
 from mybot.services.instant_view_service import try_send_as_instant_view
 from plugins.social_parser import parser_registry
 from utils.image_compressor import compress_image_for_telegram
@@ -26,6 +28,9 @@ DOCUMENT_LIMIT = 2 * 1024 * 1024 * 1024  # 2GB
 MAX_MESSAGE_LENGTH = int(4096 * 0.9)  # 3686 characters
 # Telegram caption limit is 1024 characters
 MAX_CAPTION_LENGTH = 1024
+
+# Track active parse tasks to prevent garbage collection
+_active_parse_tasks = set()
 
 
 async def _send_or_edit_message(
@@ -516,6 +521,86 @@ def _format_social_post_response(post) -> str:
     return final_message
 
 
+async def _cleanup_completed_tasks():
+    """Clean up completed tasks from the active tasks set"""
+    completed_tasks = [task for task in _active_parse_tasks if task.done()]
+    for task in completed_tasks:
+        _active_parse_tasks.discard(task)
+        # Log any exceptions that occurred in background tasks
+        if not task.cancelled() and task.exception():
+            logger.error(f"Background parse task failed: {task.exception()}")
+
+
+def get_active_parse_tasks_count() -> int:
+    """Get the number of currently active parse tasks"""
+    return len(_active_parse_tasks)
+
+
+async def _parse_task(context, chat_id: int, link: str, message_id: int, progress_msg=None) -> None:
+    """Background task for parsing and downloading - runs independently"""
+    current_task = asyncio.current_task()
+    try:
+        # Get parser
+        parser = parser_registry.get_parser(link)
+
+        if parser:
+            # Parse content
+            await _send_or_edit_message(
+                context, chat_id, f"📥 正在解析 {parser.platform_id} 内容...", progress_msg
+            )
+            post = await parser.invoke(link, download=True)
+
+            if post:
+                reply_text = _format_social_post_response(post)
+                download_results = getattr(post, 'download_results', None)
+
+                if download_results and any(r.get('success') for r in download_results):
+                    # Show download summary with file details
+                    download_summary = _format_download_summary(download_results)
+                    await _send_or_edit_message(context, chat_id, download_summary, progress_msg)
+                    # Brief pause to let user see the summary
+                    await asyncio.sleep(1.5)
+
+                    await _send_or_edit_message(
+                        context, chat_id, "📤 正在发送媒体文件...", progress_msg
+                    )
+                    await _send_media_files(
+                        context, chat_id, download_results, reply_text, progress_msg, message_id
+                    )
+                else:
+                    await _send_or_edit_message(
+                        context, chat_id, reply_text, progress_msg, message_id
+                    )
+                return
+            else:
+                reply_text = f"❌ 无法解析 {parser.platform_id} 链接，请检查链接是否有效"
+        else:
+            # Unsupported platform
+            platforms_text = "\n".join(
+                [f"• {p}" for p in parser_registry.get_supported_platforms()]
+            )
+            reply_text = (
+                "❌ 不支持的链接类型\n\n"
+                f"<b>目前支持的平台：</b>\n{platforms_text}\n\n"
+                "更多平台支持正在开发中..."
+            )
+
+        await _send_or_edit_message(context, chat_id, reply_text, progress_msg, message_id)
+
+    except Exception as e:
+        logger.exception(f"解析链接失败: {e}")
+        error_text = (
+            "❌ 解析失败，请稍后重试\n\n"
+            "<b>可能的原因：</b>\n• 链接格式不正确\n• 网络连接问题\n• 服务暂时不可用"
+        )
+        await _send_or_edit_message(context, chat_id, error_text, progress_msg, message_id)
+    finally:
+        # Ensure task is removed from active set when done
+        if current_task:
+            _active_parse_tasks.discard(current_task)
+
+
+@non_blocking_handler("parse_command")
 async def parse_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Parse social media links and automatically download media resources"""
     link = _extract_link_from_args(context.args)
@@ -552,66 +637,18 @@ async def parse_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             reply_to_message_id=message.message_id,
         )
 
-    try:
-        # Get parser
-        # await _send_or_edit_message(context, chat.id, "🔍 识别平台类型...", progress_msg)
-        parser = parser_registry.get_parser(link)
+    # Clean up completed tasks periodically
+    await _cleanup_completed_tasks()
 
-        if parser:
-            # Parse content
-            await _send_or_edit_message(
-                context, chat.id, f"📥 正在解析 {parser.platform_id} 内容...", progress_msg
-            )
-            post = await parser.invoke(link, download=True)
+    # Create background task for parsing - this won't block the bot
+    task = asyncio.create_task(
+        _parse_task(context, chat.id, link, message.message_id, progress_msg)
+    )
 
-            if post:
-                reply_text = _format_social_post_response(post)
-                download_results = getattr(post, 'download_results', None)
+    # Add task to set to prevent garbage collection and track active tasks
+    _active_parse_tasks.add(task)
 
-                if download_results and any(r.get('success') for r in download_results):
-                    # Show download summary with file details
-                    download_summary = _format_download_summary(download_results)
-                    await _send_or_edit_message(context, chat.id, download_summary, progress_msg)
-                    # Brief pause to let user see the summary
-                    import asyncio
-
-                    await asyncio.sleep(1.5)
-
-                    await _send_or_edit_message(
-                        context, chat.id, "📤 正在发送媒体文件...", progress_msg
-                    )
-                    await _send_media_files(
-                        context,
-                        chat.id,
-                        download_results,
-                        reply_text,
-                        progress_msg,
-                        message.message_id,
-                    )
-                else:
-                    await _send_or_edit_message(
-                        context, chat.id, reply_text, progress_msg, message.message_id
-                    )
-                return
-            else:
-                reply_text = f"❌ 无法解析 {parser.platform_id} 链接，请检查链接是否有效"
-        else:
-            # Unsupported platform
-            platforms_text = "\n".join(
-                [f"• {p}" for p in parser_registry.get_supported_platforms()]
-            )
-            reply_text = (
-                "❌ 不支持的链接类型\n\n"
-                f"<b>目前支持的平台：</b>\n{platforms_text}\n\n"
-                "更多平台支持正在开发中..."
-            )
-
-        await _send_or_edit_message(context, chat.id, reply_text, progress_msg, message.message_id)
-
-    except Exception as e:
-        logger.exception(f"解析链接失败: {e}")
-        error_text = (
-            "❌ 解析失败，请稍后重试\n\n"
-            "<b>可能的原因：</b>\n• 链接格式不正确\n• 网络连接问题\n• 服务暂时不可用"
-        )
-        await _send_or_edit_message(context, chat.id, error_text, progress_msg, message.message_id)
+    # The task runs independently without blocking other bot operations
+    logger.info(
+        f"Started non-blocking parse task for link: {link[:50]}... (Active tasks: {len(_active_parse_tasks)})"
+    )

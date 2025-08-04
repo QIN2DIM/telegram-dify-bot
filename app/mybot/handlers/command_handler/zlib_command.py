@@ -11,6 +11,7 @@ from telegram import ReactionTypeEmoji
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from mybot.task_manager import non_blocking_handler
 from plugins.zlib_access_points import get_zlib_search_url, get_zlib_search_url_with_info
 
 publication_tpl = """
@@ -34,6 +35,7 @@ def _extract_search_query(args: list) -> str:
     return " ".join(filtered_args).strip()
 
 
+@non_blocking_handler("zlib_command")
 async def zlib_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """获取 zlib 访问链接"""
 
