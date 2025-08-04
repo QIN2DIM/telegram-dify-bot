@@ -9,11 +9,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `uv add <package>` - Add new dependency
 - `uv remove <package>` - Remove dependency
 
-### Code Quality & Testing
-- `black app/ -C -l 100` - Format code using Black formatter
-- `ruff check app/ --fix` - Run linting with Ruff
-- `uv run app/main.py` - Run the main Telegram bot application
-
 ## High-level Architecture
 
 This is a sophisticated Telegram bot that integrates with Dify Workflow for AI-powered responses. The architecture follows a modular service-oriented design:

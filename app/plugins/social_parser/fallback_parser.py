@@ -162,14 +162,27 @@ class YtDlpParser(BaseSocialParser[YtDlpPostDetail]):
         title = info_dict.get('title', 'untitled')
 
         # yt-dlp creates files with the pattern we specified in outtmpl
-        # Look for files matching the expected pattern
-        pattern_base = f"{title[:100]}-{video_id}.*"
+        # First try exact pattern match
+        pattern_exact = f"{title}-{video_id}.*"
+        matching_files = list(download_dir.glob(pattern_exact))
 
-        matching_files = list(download_dir.glob(pattern_base))
+        # If no exact match, try with video_id only
+        if not matching_files:
+            pattern_id = f"*{video_id}*"
+            matching_files = list(download_dir.glob(pattern_id))
+
+        # If still no match, look for any video/audio files in the directory
+        if not matching_files:
+            video_extensions = ['.mp4', '.webm', '.mkv', '.avi', '.mov', '.flv', '.m4v']
+            audio_extensions = ['.mp3', '.m4a', '.wav', '.flac', '.opus', '.ogg']
+            all_extensions = video_extensions + audio_extensions
+
+            for ext in all_extensions:
+                matching_files.extend(download_dir.glob(f"*{ext}"))
 
         for file_path in matching_files:
-            if file_path.suffix in ['.json', '.info']:
-                continue  # Skip metadata files
+            if file_path.suffix in ['.json', '.info', '.part']:
+                continue  # Skip metadata and partial files
 
             file_size = file_path.stat().st_size if file_path.exists() else 0
 
