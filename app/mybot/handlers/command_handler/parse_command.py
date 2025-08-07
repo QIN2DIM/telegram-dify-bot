@@ -97,10 +97,7 @@ async def _handle_long_caption(bot, chat_id, message_id, caption):
     try:
         # Send as a separate message
         await bot.send_message(
-            chat_id=chat_id,
-            text=f"📄 媒体文件详情：\n\n{caption}",
-            parse_mode="HTML",
-            reply_to_message_id=message_id,
+            chat_id=chat_id, text=caption, parse_mode="HTML", reply_to_message_id=message_id
         )
     except Exception as e:
         logger.warning(f"Failed to handle long caption: {e}")
