@@ -95,7 +95,7 @@ async def _send_media_progress_callback(context, chat_id, progress_msg):
 async def _handle_long_caption(bot, chat_id, message_id, caption):
     """Handle caption that's too long for Telegram"""
     try:
-        # Send as separate message
+        # Send as a separate message
         await bot.send_message(
             chat_id=chat_id,
             text=f"📄 媒体文件详情：\n\n{caption}",
@@ -224,7 +224,7 @@ async def parse_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not link:
         platforms_text = "\n".join([f"• {p}" for p in parser_registry.get_supported_platforms()])
         reply_text = (
-            "❌ 请提供一个有效的链接\n\n"
+            "✨ 请提供一个有效的链接\n\n"
             "<b>使用方法：</b> <code>/parse &lt;链接&gt;</code>\n\n"
             f"<b>支持的平台：</b>\n{platforms_text}"
         )
@@ -237,7 +237,7 @@ async def parse_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             chat_id=chat.id, message_id=message.message_id, reaction=[ReactionTypeEmoji(emoji="🎉")]
         )
 
-    # Send initial progress message
+    # Send an initial progress message
     progress_msg = None
     with suppress(Exception):
         progress_msg = await context.bot.send_message(

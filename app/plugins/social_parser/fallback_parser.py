@@ -50,7 +50,7 @@ class YtDlpPostDetail(BaseSocialPost):
 
     @classmethod
     def from_yt_dlp_info(cls, info_dict: Dict[str, Any]):
-        """Create post detail from yt-dlp info dictionary"""
+        """Create post-detail from yt-dlp info dictionary"""
         return cls(
             id=info_dict.get("id", ""),
             title=info_dict.get("title", ""),
@@ -84,19 +84,17 @@ class YtDlpParser(BaseSocialParser[YtDlpPostDetail]):
     @staticmethod
     def _extract_domain_from_url(url: str) -> Optional[str]:
         """Extract domain from URL for cookie file matching"""
-        try:
+        with suppress(Exception):
             parsed = urlparse(url)
             domain = parsed.netloc.lower()
             # Remove www. prefix if present
             if domain.startswith('www.'):
                 domain = domain[4:]
             return domain
-        except Exception:
-            return None
 
     @staticmethod
     def _find_cookie_file(url: str) -> Optional[Path]:
-        """Find appropriate cookie file based on URL domain"""
+        """Find the appropriate cookie file based on URL domain"""
         domain = YtDlpParser._extract_domain_from_url(url)
         logger.debug(f"{domain=}")
 
@@ -108,12 +106,11 @@ class YtDlpParser(BaseSocialParser[YtDlpPostDetail]):
         # 2. Main domain match (e.g., twitter.cookie for twitter.com)
         # 3. Special cases (youtube.com -> youtube.cookie, youtu.be -> youtube.cookie)
 
-        cookie_candidates = []
+        cookie_candidates = [YT_DLP_COOKIES / f"{domain}.cookie"]
 
         # Full domain match
-        cookie_candidates.append(YT_DLP_COOKIES / f"{domain}.cookie")
 
-        # Extract main domain (without TLD) for simplified matching
+        # Extract the main domain (without TLD) for simplified matching
         main_domain = domain.split('.')[0]
         if main_domain != domain:
             cookie_candidates.append(YT_DLP_COOKIES / f"{main_domain}.cookie")
@@ -149,7 +146,7 @@ class YtDlpParser(BaseSocialParser[YtDlpPostDetail]):
         """Get yt-dlp configuration options with flexible cookie support"""
         opts = {}
 
-        # Always try to load appropriate cookie file when URL is provided
+        # Always try to load the appropriate cookie file when URL is provided
         # Some sites (like YouTube) require cookies even for info extraction
         if url:
             cookie_file = YtDlpParser._find_cookie_file(url)
@@ -157,14 +154,16 @@ class YtDlpParser(BaseSocialParser[YtDlpPostDetail]):
                 opts['cookiefile'] = str(cookie_file)
                 logger.info(f"Using cookie file: {cookie_file.name}")
 
-        # Only add necessary options for download path when actually downloading
+        # Only add necessary options for a download path when actually downloading
         if not extract_only:
             opts['outtmpl'] = str(download_dir / '%(title)s-%(id)s.%(ext)s')
-            
-            # Prioritize high-quality MP4 format for better Telegram compatibility
-            # First try: Download best MP4 video with best M4A audio
+
+            # Prioritize a high-quality MP4 format for better Telegram compatibility
+            # First try: Download the best MP4 video with best M4A audio
             # Fallback: Download best quality and convert to MP4
-            opts['format'] = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/bestvideo+bestaudio/best'
+            opts['format'] = (
+                'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/bestvideo+bestaudio/best'
+            )
             opts['merge_output_format'] = 'mp4'
 
         return opts
@@ -173,7 +172,7 @@ class YtDlpParser(BaseSocialParser[YtDlpPostDetail]):
         self, url: str, download_dir: Path, extract_only: bool = False
     ) -> Optional[Dict[str, Any]]:
         """Synchronous yt-dlp info extraction/download (runs in thread)"""
-        # Pass URL to opts for cookie loading during download
+        # Pass URL to opt for cookie loading during download
         opts = self._get_yt_dlp_opts(download_dir, extract_only, url)
 
         try:
@@ -301,7 +300,7 @@ class YtDlpParser(BaseSocialParser[YtDlpPostDetail]):
             if not info_dict:
                 return None
 
-            # Handle playlist case - use first entry for post details
+            # Handle playlist case - use first entry for post-details
             if 'entries' in info_dict and info_dict['entries']:
                 first_entry = next((entry for entry in info_dict['entries'] if entry), None)
                 if first_entry:
