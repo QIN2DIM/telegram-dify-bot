@@ -297,9 +297,52 @@ async def download_video_note_from_message(message: Message, bot: Bot) -> Option
         return None
 
 
+def _classify_file_by_extension(file_path: Path) -> str:
+    """
+    Classify file type based on extension for proper categorization
+
+    Args:
+        file_path: Path to the file
+
+    Returns:
+        Classified media type string
+    """
+    if not file_path:
+        return "documents"
+
+    file_extension = file_path.suffix.upper().lstrip(".")
+
+    # Video files (including those sent as documents)
+    if file_extension in [
+        "MP4",
+        "AVI",
+        "MOV",
+        "WMV",
+        "FLV",
+        "MKV",
+        "WEBM",
+        "MPEG",
+        "M4V",
+        "3GP",
+        "OGV",
+    ]:
+        return "videos"
+
+    # Audio files (including those sent as documents)
+    if file_extension in ["MP3", "WAV", "OGG", "M4A", "AAC", "FLAC", "WMA", "AMR", "MPGA", "OPUS"]:
+        return "audio"
+
+    # Image files (rare but possible as documents)
+    if file_extension in ["JPG", "JPEG", "PNG", "WEBP", "BMP", "TIFF", "GIF", "SVG"]:
+        return "photos"
+
+    # Everything else remains as document
+    return "documents"
+
+
 async def download_all_media_from_message(message: Message, bot: Bot) -> Dict[str, List[Path]]:
     """
-    Download all media from a message
+    Download all media from a message with smart file type classification
 
     Args:
         message: Telegram message
@@ -323,11 +366,14 @@ async def download_all_media_from_message(message: Message, bot: Bot) -> Dict[st
         if photo_paths:
             media_files["photos"].extend(photo_paths)
 
-    # Download document
+    # Download document (with smart reclassification)
     if message.document:
         doc_path = await download_document_from_message(message, bot)
         if doc_path:
-            media_files["documents"].append(doc_path)
+            # Classify based on file extension to handle videos/audio sent as documents
+            classified_type = _classify_file_by_extension(doc_path)
+            media_files[classified_type].append(doc_path)
+            logger.debug(f"Document {doc_path.name} reclassified as {classified_type}")
 
     # Download audio
     if message.audio:

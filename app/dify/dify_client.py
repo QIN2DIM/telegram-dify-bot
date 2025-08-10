@@ -70,7 +70,60 @@ class DifyWorkflowClient:
 
                     for path in paths:
                         if isinstance(path, Path) and path.is_file():
-                            files_to_upload.append((path, file_type))
+                            # Double-check file type based on extension for files that might be misclassified
+                            # This handles cases where videos are sent as documents
+                            final_file_type = file_type
+                            if media_type == "documents":
+                                file_extension = path.suffix.upper().lstrip(".")
+                                if file_extension in [
+                                    "MP4",
+                                    "AVI",
+                                    "MOV",
+                                    "WMV",
+                                    "FLV",
+                                    "MKV",
+                                    "WEBM",
+                                    "MPEG",
+                                    "M4V",
+                                    "3GP",
+                                    "OGV",
+                                ]:
+                                    final_file_type = "video"
+                                    logger.debug(
+                                        f"Document {path.name} re-classified as video for Dify upload"
+                                    )
+                                elif file_extension in [
+                                    "MP3",
+                                    "WAV",
+                                    "OGG",
+                                    "M4A",
+                                    "AAC",
+                                    "FLAC",
+                                    "WMA",
+                                    "AMR",
+                                    "MPGA",
+                                    "OPUS",
+                                ]:
+                                    final_file_type = "audio"
+                                    logger.debug(
+                                        f"Document {path.name} re-classified as audio for Dify upload"
+                                    )
+                                elif file_extension in [
+                                    "JPG",
+                                    "JPEG",
+                                    "PNG",
+                                    "WEBP",
+                                    "BMP",
+                                    "TIFF",
+                                    "GIF",
+                                    "SVG",
+                                ]:
+                                    final_file_type = "image"
+                                    logger.debug(
+                                        f"Document {path.name} re-classified as image for Dify upload"
+                                    )
+
+                            files_to_upload.append((path, final_file_type))
 
             # If it's a list or single Path (backward compatibility)
             else:
