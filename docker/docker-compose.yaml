@@ -97,7 +97,6 @@ services:
     image: aiogram/telegram-bot-api:latest
     container_name: telegram-bot-api
     restart: unless-stopped
-
     volumes:
       - "./volumes/telegram-bot-api-data:/var/lib/telegram-bot-api"
     environment:
