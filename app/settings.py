@@ -31,7 +31,7 @@ class Settings(BaseSettings):
         default="", description="Get the bot's API_TOKEN from https://t.me/BotFather"
     )
 
-    TELEGRAM_BOT_API_URL: str = Field(default="http://telegram-bot-api:8081")
+    TELEGRAM_BOT_API_URL: str = Field(default="http://nginx:80")
 
     ENABLE_TELEGRAM_BOT_LOCAL_MODE: bool = Field(default=True)
 

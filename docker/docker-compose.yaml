@@ -34,10 +34,13 @@ services:
       - "./volumes/telegram-bot/data:/app/app/data"
     environment:
       DATABASE_URL: "${DATABASE_URL:-postgresql://postgres:WdA25SmrLmFkGPcg@db:5432/telegram_dify_bot}"
+      TELEGRAM_BOT_API_URL: "${TELEGRAM_BOT_API_URL:-http://nginx:80}"
     command: uv run app/main.py
     depends_on:
       db:
         condition: service_healthy
+      nginx:
+        condition: service_started
     networks:
       - app-network
 
@@ -94,10 +97,7 @@ services:
     image: aiogram/telegram-bot-api:latest
     container_name: telegram-bot-api
     restart: unless-stopped
-    networks:
-      - app-network
-#    ports:
-#      - "8081:8081"
+
     volumes:
       - "./volumes/telegram-bot-api-data:/var/lib/telegram-bot-api"
     environment:
@@ -110,6 +110,24 @@ services:
       --dir=/var/lib/telegram-bot-api
       --http-port=8081
       --log=/var/lib/telegram-bot-api/telegram-bot-api.log
+    networks:
+      - app-network
+    #    ports:
+    #      - "8081:8081"
+
+  nginx:
+    image: nginx:1.29.0-alpine
+    restart: unless-stopped
+    depends_on:
+      - telegram-bot-api
+    volumes:
+      - "./volumes/telegram-bot-api-data:/var/lib/telegram-bot-api"
+      - "./nginx:/etc/nginx/conf.d/"
+    networks:
+      - app-network
+    #    ports:
+    #      - "8082:80"
+
 
 networks:
   app-network:
