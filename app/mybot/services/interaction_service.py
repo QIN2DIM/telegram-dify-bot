@@ -17,7 +17,8 @@ from mybot.common import (
     storage_messages_dataset,
     get_hello_reply,
     get_image_mention_prompt,
-    download_all_media_from_message,
+    add_message_to_media_group_cache,
+    download_media_group_files,
 )
 from settings import settings
 
@@ -390,6 +391,9 @@ async def pre_interactivity(
     with suppress(Exception):
         storage_messages_dataset(chat.type, trigger_message)
 
+    # Add message to media group cache for handling grouped messages
+    add_message_to_media_group_cache(trigger_message)
+
     # TODO: 弃用自动翻译功能
     is_auto_mode = False
 
@@ -448,15 +452,17 @@ async def pre_interactivity(
     # 提取引用信息
     quote_info = _extract_quote_info(trigger_message)
 
-    # Download all media files
-    media_files = await download_all_media_from_message(trigger_message, context.bot)
+    # Download all media files (including media group support)
+    media_files = await download_media_group_files(trigger_message, context.bot)
 
     # Maintain backward compatibility with photo_paths
     photo_paths = media_files.get("photos", []) if media_files else None
 
     # 处理 MENTION_WITH_REPLY 模式下的回复消息媒体
     if task_type == TaskType.MENTION_WITH_REPLY and trigger_message.reply_to_message:
-        reply_media_files = await download_all_media_from_message(
+        # Also add reply message to cache in case it's part of a media group
+        add_message_to_media_group_cache(trigger_message.reply_to_message)
+        reply_media_files = await download_media_group_files(
             trigger_message.reply_to_message, context.bot
         )
         if reply_media_files:

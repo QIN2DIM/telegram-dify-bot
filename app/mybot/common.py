@@ -13,11 +13,16 @@ import uuid
 from contextlib import suppress
 from pathlib import Path
 from typing import List, Optional, Dict
+from collections import defaultdict
 
 from loguru import logger
 from telegram import Message, Bot, Document, Audio, Video, Voice, VideoNote, File
 
 from settings import DATA_DIR
+
+# Media Group cache to handle grouped messages
+_media_group_cache: Dict[str, List[Message]] = defaultdict(list)
+_cache_cleanup_time = time.time()
 
 
 def storage_messages_dataset(chat_type: str, effective_message: Message) -> None:
@@ -30,6 +35,89 @@ def storage_messages_dataset(chat_type: str, effective_message: Message) -> None
 
     fp.write_text(preview_text, encoding="utf-8")
     # logger.debug(f"echo message - {preview_text}")
+
+
+def _cleanup_media_group_cache():
+    """Clean up old entries from media group cache"""
+    global _cache_cleanup_time, _media_group_cache
+
+    current_time = time.time()
+    # Clean up every 5 minutes
+    if current_time - _cache_cleanup_time > 300:
+        # Remove entries older than 2 minutes
+        cutoff_time = current_time - 120
+
+        groups_to_remove = []
+        for group_id, messages in _media_group_cache.items():
+            # Check if all messages in the group are old
+            if all(msg.date.timestamp() < cutoff_time for msg in messages):
+                groups_to_remove.append(group_id)
+
+        for group_id in groups_to_remove:
+            del _media_group_cache[group_id]
+
+        _cache_cleanup_time = current_time
+
+        if groups_to_remove:
+            logger.debug(f"Cleaned up {len(groups_to_remove)} old media groups from cache")
+
+
+def add_message_to_media_group_cache(message: Message):
+    """Add a message to the media group cache if it belongs to a group"""
+    if not message.media_group_id:
+        return
+
+    _cleanup_media_group_cache()
+
+    group_id = message.media_group_id
+
+    # Check if this message is already in the cache (by message_id)
+    existing_ids = [msg.message_id for msg in _media_group_cache[group_id]]
+    if message.message_id not in existing_ids:
+        _media_group_cache[group_id].append(message)
+        logger.debug(
+            f"Added message_id={message.message_id} to media group {group_id}, total messages: {len(_media_group_cache[group_id])}"
+        )
+    else:
+        logger.debug(
+            f"Message_id={message.message_id} already in media group {group_id} cache, skipping"
+        )
+
+
+def get_media_group_messages(message: Message) -> List[Message]:
+    """
+    Get all messages from the same media group
+
+    Args:
+        message: The trigger message
+
+    Returns:
+        List of messages from the same media group (including the trigger message)
+    """
+    if not message.media_group_id:
+        return [message]  # Single message, not part of a group
+
+    group_id = message.media_group_id
+    group_messages = list(_media_group_cache.get(group_id, []))
+
+    # Check if trigger message is already in the cache (by message_id)
+    message_ids = [msg.message_id for msg in group_messages]
+    if message.message_id not in message_ids:
+        group_messages.append(message)
+
+    # Remove duplicates by message_id (keep first occurrence)
+    seen = set()
+    unique_messages = []
+    for msg in group_messages:
+        if msg.message_id not in seen:
+            seen.add(msg.message_id)
+            unique_messages.append(msg)
+
+    # Sort by message_id to ensure consistent order
+    unique_messages.sort(key=lambda msg: msg.message_id)
+
+    # logger.debug(f"Found {len(unique_messages)} unique messages in media group {group_id}")
+    return unique_messages
 
 
 async def download_telegram_file(
@@ -102,11 +190,16 @@ async def _download_photos_from_message(message: Message, bot: Bot) -> List[Path
     # 我们选择最大尺寸的版本（file_size最大的）
     largest_photo = max(message.photo, key=lambda x: x.file_size or 0)
 
+    logger.debug(
+        f"Downloading photo from message_id={message.message_id}, file_id={largest_photo.file_id}, size={largest_photo.file_size}"
+    )
+
     try:
         file_obj = await bot.get_file(largest_photo.file_id)
         local_path = await download_telegram_file(bot, file_obj, download_dir)
         if local_path:
             downloaded_files.append(local_path)
+            logger.debug(f"Successfully downloaded photo to {local_path}")
     except Exception as e:
         logger.error(f"Failed to download photo {largest_photo.file_id}: {e}")
 
@@ -400,6 +493,62 @@ async def download_all_media_from_message(message: Message, bot: Bot) -> Dict[st
             media_files["video_notes"].append(video_note_path)
 
     return media_files
+
+
+async def download_media_group_files(trigger_message: Message, bot: Bot) -> Dict[str, List[Path]]:
+    """
+    Download all media files from a media group or single message
+
+    Args:
+        trigger_message: The message that triggered the interaction
+        bot: Bot instance
+
+    Returns:
+        Dictionary with media type as key and list of paths as value
+    """
+    # Get all messages in the media group (or just the single message)
+    group_messages = get_media_group_messages(trigger_message)
+
+    # Log media group info for debugging
+    if len(group_messages) > 1:
+        logger.info(f"Processing media group with {len(group_messages)} messages")
+        for idx, msg in enumerate(group_messages):
+            if msg.photo:
+                largest_photo = msg.photo[-1]
+                logger.debug(
+                    f"Message {idx+1}: message_id={msg.message_id}, "
+                    f"photo_file_id={largest_photo.file_id[:20]}..., "
+                    f"file_unique_id={largest_photo.file_unique_id}, "
+                    f"file_size={largest_photo.file_size}"
+                )
+
+    # Aggregate all media files
+    aggregated_media_files = {
+        "photos": [],
+        "documents": [],
+        "audio": [],
+        "videos": [],
+        "voice": [],
+        "video_notes": [],
+    }
+
+    for message in group_messages:
+        message_media = await download_all_media_from_message(message, bot)
+
+        # Merge media files from each message
+        for media_type, paths in message_media.items():
+            if paths:
+                aggregated_media_files[media_type].extend(paths)
+
+    # Log the results
+    total_files = sum(len(paths) for paths in aggregated_media_files.values())
+    if total_files > 0:
+        logger.info(f"Downloaded {total_files} files from media group/message")
+        for media_type, paths in aggregated_media_files.items():
+            if paths:
+                logger.debug(f"  {media_type}: {len(paths)} files")
+
+    return aggregated_media_files
 
 
 def cleanup_old_photos(max_age_hours: int = 24) -> None:

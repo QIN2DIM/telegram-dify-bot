@@ -13,7 +13,7 @@ from telegram.ext import ContextTypes
 
 from dify.models import ForcedCommand
 from models import Interaction, TaskType
-from mybot.common import download_all_media_from_message
+from mybot.common import add_message_to_media_group_cache, download_media_group_files
 from mybot.task_manager import non_blocking_handler
 from mybot.services import dify_service, response_service
 
@@ -62,8 +62,9 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         logger.warning("search 命令：无法找到有效的消息或聊天信息进行回复")
         return
 
-    # Download all media files from message
-    media_files = await download_all_media_from_message(message, context.bot)
+    # Add message to media group cache and download all media files (including media group)
+    add_message_to_media_group_cache(message)
+    media_files = await download_media_group_files(message, context.bot)
 
     # Check if any media was downloaded
     has_media = False

@@ -9,9 +9,11 @@ from loguru import logger
 from telegram import Update
 from telegram.ext import ContextTypes
 
+import asyncio
 from mybot.task_manager import non_blocking_handler
 from mybot.services import interaction_service, context_service, dify_service, response_service
 from mybot.handlers.command_handler.search_command import search_command
+from mybot.common import add_message_to_media_group_cache
 from settings import settings
 
 
@@ -74,10 +76,41 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     """
     Orchestrates the bot's response to a new message.
     """
+    # Add message to media group cache first (for potential media group handling)
+    message = update.effective_message
+    if message:
+        add_message_to_media_group_cache(message)
+
+        # For media groups, wait a bit to collect all messages
+        if message.media_group_id:
+            # Small delay to allow other messages in the group to arrive
+            await asyncio.sleep(0.5)
+
+            # Check if we should process this group
+            # Only the message with caption (or the last message if no caption) should trigger processing
+            from mybot.common import get_media_group_messages
+
+            group_messages = get_media_group_messages(message)
+
+            # Find the message that should trigger processing (prefer one with caption)
+            trigger_msg = None
+            for msg in group_messages:
+                if msg.caption or msg.text:
+                    trigger_msg = msg
+                    break
+
+            # If no message has caption, use the last one
+            if not trigger_msg and group_messages:
+                trigger_msg = group_messages[-1]
+
+            # Only proceed if this is the trigger message
+            if trigger_msg and trigger_msg.message_id != message.message_id:
+                # logger.debug(f"Skipping non-trigger message {message.message_id} in media group")
+                return
+
     # Check if this is a command with media (photos/documents/etc)
     # When users send commands with media, Telegram doesn't recognize them as commands
     # so they get routed to message_handler instead of CommandHandler
-    message = update.effective_message
     if message and (message.text or message.caption):
         message_text = (message.text or message.caption or "").strip()
 
