@@ -20,18 +20,22 @@ async def invoke_model_blocking(
     bot_username: str,
     message_context: str,
     from_user: str,
-    photo_paths: Optional[List[Path]],
+    photo_paths: Optional[List[Path]] = None,
+    media_files: Optional[Dict[str, List[Path]]] = None,
     **kwargs,
 ) -> str:
     if settings.ENABLE_DEV_MODE:
         return settings.DEV_MODE_MOCKED_TEMPLATE
 
     """调用 Dify 并以阻塞方式获取结果。"""
+    # Use media_files if available, otherwise fall back to photo_paths
+    files_to_send = media_files if media_files else photo_paths
+
     result = await run_blocking_dify_workflow(
         bot_username=bot_username,
         message_context=message_context,
         from_user=from_user,
-        with_files=photo_paths,
+        with_files=files_to_send,
         **kwargs,
     )
     result_text = result.data.outputs.answer
@@ -50,15 +54,19 @@ async def invoke_model_streaming(
     bot_username: str,
     message_context: str,
     from_user: str,
-    photo_paths: Optional[List[Path]],
+    photo_paths: Optional[List[Path]] = None,
+    media_files: Optional[Dict[str, List[Path]]] = None,
     **kwargs,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """以流式方式调用 Dify 并返回事件块。"""
+    # Use media_files if available, otherwise fall back to photo_paths
+    files_to_send = media_files if media_files else photo_paths
+
     streaming_generator = await run_streaming_dify_workflow(
         bot_username=bot_username,
         message_context=message_context,
         from_user=from_user,
-        with_files=photo_paths,
+        with_files=files_to_send,
         **kwargs,
     )
     async for chunk in streaming_generator:

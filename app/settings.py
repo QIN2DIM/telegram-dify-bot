@@ -61,6 +61,8 @@ class Settings(BaseSettings):
         description="PostgreSQL database connection URL",
     )
 
+    INIT_PLUGIN_STORAGE: bool = Field(default=True)
+
     TELEGRAM_CHAT_WHITELIST: str = Field(
         default="",
         description="Allowed chat IDs, can simultaneously constrain channel, group, private, supergroup.",
@@ -212,6 +214,7 @@ class Settings(BaseSettings):
             # Note: local_mode needs to be used with a local Bot API server.
             # If you are not running a local server, set local_mode to False
             .base_url(f"{self.TELEGRAM_BOT_API_URL}/bot")
+            .base_file_url(f"{self.TELEGRAM_BOT_API_URL}/file/bot")
             .local_mode(True)
         )
 

@@ -14,7 +14,7 @@ from loguru import logger
 from telegram import Update, BotCommand
 from telegram.ext import CommandHandler, MessageHandler, filters
 
-from mybot.common import cleanup_old_photos, cleanup_old_social_downloads
+from mybot.common import cleanup_old_social_downloads, cleanup_old_media
 from mybot.task_manager import wait_for_all_tasks, cancel_all_tasks, get_active_tasks_count
 from mybot.handlers.command_handler import (
     start_command,
@@ -76,14 +76,15 @@ def main() -> None:
 
     # 定期清理旧的下载文件（每次重启时都尝试清理）
     with suppress(Exception):
-        cleanup_old_photos(max_age_hours=24)
+        cleanup_old_media(max_age_hours=24)  # 清理所有媒体文件
         cleanup_old_social_downloads(max_age_hours=48)  # 社交媒体文件保留时间稍长
 
     # Create the Application and pass it your bot's token.
     application = settings.get_default_application()
 
-    # 初始化数据库状态
-    init_plugin_storage()
+    # Initialize database state
+    if settings.INIT_PLUGIN_STORAGE:
+        init_plugin_storage()
 
     # 设置机器人命令菜单
     application.post_init = setup_bot_commands

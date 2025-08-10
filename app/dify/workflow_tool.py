@@ -6,7 +6,7 @@
 @Desc    :
 """
 from pathlib import Path
-from typing import List
+from typing import List, Dict
 
 from dify import DifyWorkflowClient
 from dify.models import (
@@ -23,7 +23,7 @@ async def run_blocking_dify_workflow(
     message_context: str,
     from_user: str,
     bot_username: str = "",
-    with_files: Path | List[Path] | None = None,
+    with_files: Path | List[Path] | Dict[str, List[Path]] | None = None,
     forced_command: FORCED_COMMAND_TYPE | None = None,
     **kwargs,
 ) -> WorkflowCompletionResponse:
@@ -53,7 +53,7 @@ async def run_streaming_dify_workflow(
     bot_username: str,
     message_context: str,
     from_user: str,
-    with_files: Path | List[Path] | None = None,
+    with_files: Path | List[Path] | Dict[str, List[Path]] | None = None,
     forced_command: FORCED_COMMAND_TYPE | None = None,
     **kwargs,
 ):

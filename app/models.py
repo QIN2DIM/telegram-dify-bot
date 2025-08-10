@@ -44,6 +44,10 @@ class Interaction(BaseModel):
     photo_paths: List[Path] | None = None
     from_user_fmt: str | None = None
 
+    # All media files
+    media_files: Dict[str, List[Path]] | None = None
+    """所有媒体文件，按类型分组: photos, documents, audio, videos, voice, video_notes"""
+
     # 增强的上下文信息
     user_info: Dict[str, Any] | None = None
     """用户的完整信息，包括用户名、全名、是否机器人、语言代码等"""

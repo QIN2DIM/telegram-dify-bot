@@ -110,6 +110,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 message_context=message_context,
                 from_user=interaction.from_user_fmt,
                 photo_paths=interaction.photo_paths,
+                media_files=interaction.media_files,
             )
             await response_service.send_streaming_response(
                 update, context, interaction, streaming_generator
@@ -123,6 +124,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 message_context=message_context,
                 from_user=interaction.from_user_fmt,
                 photo_paths=interaction.photo_paths,
+                media_files=interaction.media_files,
             )
             if result_text:
                 await response_service.send_standard_response(

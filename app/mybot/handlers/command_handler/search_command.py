@@ -13,7 +13,7 @@ from telegram.ext import ContextTypes
 
 from dify.models import ForcedCommand
 from models import Interaction, TaskType
-from mybot.common import _download_photos_from_message
+from mybot.common import download_all_media_from_message
 from mybot.task_manager import non_blocking_handler
 from mybot.services import dify_service, response_service
 
@@ -62,21 +62,27 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         logger.warning("search 命令：无法找到有效的消息或聊天信息进行回复")
         return
 
-    # 检查消息是否包含图片
-    photo_paths = None
-    if message.photo:
-        try:
-            photo_paths = await _download_photos_from_message(message, context.bot)
-            logger.info(f"Downloaded {len(photo_paths) if photo_paths else 0} photos for search")
-        except Exception as download_error:
-            logger.error(f"下载图片失败: {download_error}")
+    # Download all media files from message
+    media_files = await download_all_media_from_message(message, context.bot)
 
-    # 检查是否提供了搜索查询或图片
-    if not query and not photo_paths:
+    # Check if any media was downloaded
+    has_media = False
+    if media_files:
+        for media_type, paths in media_files.items():
+            if paths:
+                has_media = True
+                logger.info(f"Downloaded {len(paths)} {media_type} for search")
+                break
+
+    # For backward compatibility
+    photo_paths = media_files.get("photos", []) if media_files else None
+
+    # 检查是否提供了搜索查询或媒体文件
+    if not query and not has_media:
         try:
             await context.bot.send_message(
                 chat_id=chat.id,
-                text="请提供搜索关键词或上传图片\n\n使用方法: \n• <code>/search 你的搜索内容</code>\n• <code>/search</code> + 发送图片\n• <code>/search 描述文字</code> + 发送图片",
+                text="请提供搜索关键词或上传文件\n\n使用方法: \n• <code>/search 你的搜索内容</code>\n• <code>/search</code> + 发送图片/文档/音频/视频\n• <code>/search 描述文字</code> + 发送文件",
                 parse_mode='HTML',
                 reply_to_message_id=message.message_id,
             )
@@ -84,9 +90,9 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             logger.error(f"发送搜索提示失败: {send_error}")
         return
 
-    # 如果没有文本但有图片，使用默认的图片分析提示
-    if not query and photo_paths:
-        query = "请分析这张图片"
+    # 如果没有文本但有媒体，使用默认的分析提示
+    if not query and has_media:
+        query = "请分析这个文件"
 
     # 立即给消息添加 reaction 表示收到指令
     try:
@@ -101,6 +107,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         task_type=TaskType.MENTION,  # 使用 MENTION 类型以确保回复到原消息
         from_user_fmt=str(message.from_user.id if message.from_user else "unknown"),
         photo_paths=photo_paths or [],
+        media_files=media_files,
     )
 
     # 获取 bot username
@@ -108,15 +115,14 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # 使用流式调用 Dify 服务
     try:
-        logger.info(
-            f"开始调用 Dify 搜索服务 (流式): {query} (图片: {len(photo_paths) if photo_paths else 0}张)"
-        )
+        logger.info(f"开始调用 Dify 搜索服务 (流式): {query} (媒体文件: {has_media})")
 
         streaming_generator = dify_service.invoke_model_streaming(
             bot_username=bot_username,
             message_context=query,
             from_user=interaction.from_user_fmt,
             photo_paths=photo_paths,
+            media_files=media_files,
             forced_command=ForcedCommand.GOOGLE_GROUNDING,  # 前置传参 forced_command
         )
 
