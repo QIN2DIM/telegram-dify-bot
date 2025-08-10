@@ -159,6 +159,11 @@ This is a sophisticated Telegram bot specifically designed for Dify Workflow int
 - Message edit throttling to avoid Telegram flood limits
 - Configurable delays between streaming updates
 
+**File Access Security**
+- Grep commands allowed for code inspection
+- Sensitive files (.env, secrets, tokens, keys, passwords) are protected from grep access
+- Maintains security while enabling development productivity
+
 ### Development Features
 
 **Dev Mode (ENABLE_DEV_MODE)**

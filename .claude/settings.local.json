@@ -7,10 +7,17 @@
       "Bash(black:*)",
       "Bash(ruff check:*)",
       "Bash(python:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(docker logs:*)",
+      "Bash(grep:*)"
     ],
     "deny": [
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(grep:*.env*)",
+      "Bash(grep:*secret*)",
+      "Bash(grep:*token*)",
+      "Bash(grep:*key*)",
+      "Bash(grep:*password*)"
     ]
   }
 }
