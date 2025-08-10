@@ -8,7 +8,7 @@
 import json
 import mimetypes
 from pathlib import Path
-from typing import List, Any, AsyncGenerator
+from typing import List, Any, AsyncGenerator, Dict
 
 from httpx import AsyncClient
 from httpx_sse import aconnect_sse
@@ -21,6 +21,10 @@ from dify.models import (
     WorkflowFileInputBody,
     FILE_TYPE,
     WorkflowCompletionResponse,
+    ALLOWED_FILE_DOCS,
+    ALLOWED_FILE_IMAGE,
+    ALLOWED_FILE_AUDIO,
+    ALLOWED_FILE_VIDEO,
 )
 from settings import settings
 
@@ -37,25 +41,110 @@ class DifyWorkflowClient:
     async def _fmt_payload(
         self,
         payload: WorkflowRunPayload,
-        with_files: List[Path] | Path = None,
+        with_files: List[Path] | Path | Dict[str, List[Path]] = None,
         _filter_type: FILE_TYPE = "image",
     ):
         _payload_files = []
 
-        # 筛选图片上传
+        # Handle different file input formats
         if with_files:
-            if not isinstance(with_files, list):
-                with_files = [with_files]
-            for file_path in with_files:
-                if not isinstance(file_path, Path) or not file_path.is_file():
-                    continue
-                if fs := await self.upload_files(
-                    payload.user_id, file_path, filter_type=_filter_type
-                ):
-                    fs_body = WorkflowFileInputBody(
-                        type=_filter_type, transfer_method="local_file", upload_file_id=fs.id
-                    )
-                    _payload_files.append(fs_body)
+            files_to_upload = []
+
+            # If it's a dictionary (from media_files)
+            if isinstance(with_files, dict):
+                for media_type, paths in with_files.items():
+                    if not paths:
+                        continue
+
+                    # Map media type to FILE_TYPE
+                    if media_type in ["photos"]:
+                        file_type = "image"
+                    elif media_type in ["documents"]:
+                        file_type = "document"
+                    elif media_type in ["audio", "voice"]:
+                        file_type = "audio"
+                    elif media_type in ["videos", "video_notes"]:
+                        file_type = "video"
+                    else:
+                        file_type = "custom"
+
+                    for path in paths:
+                        if isinstance(path, Path) and path.is_file():
+                            # Double-check file type based on extension for files that might be misclassified
+                            # This handles cases where videos are sent as documents
+                            final_file_type = file_type
+                            if media_type == "documents":
+                                file_extension = path.suffix.upper().lstrip(".")
+                                if file_extension in [
+                                    "MP4",
+                                    "AVI",
+                                    "MOV",
+                                    "WMV",
+                                    "FLV",
+                                    "MKV",
+                                    "WEBM",
+                                    "MPEG",
+                                    "M4V",
+                                    "3GP",
+                                    "OGV",
+                                ]:
+                                    final_file_type = "video"
+                                    logger.debug(
+                                        f"Document {path.name} re-classified as video for Dify upload"
+                                    )
+                                elif file_extension in [
+                                    "MP3",
+                                    "WAV",
+                                    "OGG",
+                                    "M4A",
+                                    "AAC",
+                                    "FLAC",
+                                    "WMA",
+                                    "AMR",
+                                    "MPGA",
+                                    "OPUS",
+                                ]:
+                                    final_file_type = "audio"
+                                    logger.debug(
+                                        f"Document {path.name} re-classified as audio for Dify upload"
+                                    )
+                                elif file_extension in [
+                                    "JPG",
+                                    "JPEG",
+                                    "PNG",
+                                    "WEBP",
+                                    "BMP",
+                                    "TIFF",
+                                    "GIF",
+                                    "SVG",
+                                ]:
+                                    final_file_type = "image"
+                                    logger.debug(
+                                        f"Document {path.name} re-classified as image for Dify upload"
+                                    )
+
+                            files_to_upload.append((path, final_file_type))
+
+            # If it's a list or single Path (backward compatibility)
+            else:
+                if not isinstance(with_files, list):
+                    with_files = [with_files]
+                for file_path in with_files:
+                    if isinstance(file_path, Path) and file_path.is_file():
+                        files_to_upload.append((file_path, _filter_type))
+
+            # Upload all files
+            for file_path, file_type in files_to_upload:
+                try:
+                    if fs := await self.upload_files(
+                        payload.user_id, file_path, filter_type=file_type
+                    ):
+                        fs_body = WorkflowFileInputBody(
+                            type=file_type, transfer_method="local_file", upload_file_id=fs.id
+                        )
+                        _payload_files.append(fs_body)
+                except Exception as e:
+                    logger.error(f"Failed to upload file {file_path}: {e}")
 
         if _payload_files:
             payload.inputs.files = _payload_files
@@ -160,9 +249,25 @@ class DifyWorkflowClient:
         """
         file_suffix = file_path.suffix.upper().lstrip(".")
 
-        # remove GIF, SVG
-        if filter_type == "image" and file_suffix not in ["JPG", "JPEG", "PNG", "WEBP"]:
-            return None
+        # Filter based on file type
+        if filter_type == "image":
+            if file_suffix not in ALLOWED_FILE_IMAGE:
+                logger.debug(f"Skipping non-image file {file_path.name} for image filter")
+                return None
+        elif filter_type == "document":
+            if file_suffix not in ALLOWED_FILE_DOCS:
+                logger.debug(f"Skipping non-document file {file_path.name} for document filter")
+                return None
+        elif filter_type == "audio":
+            if file_suffix not in ALLOWED_FILE_AUDIO:
+                logger.debug(f"Skipping non-audio file {file_path.name} for audio filter")
+                return None
+        elif filter_type == "video":
+            if file_suffix not in ALLOWED_FILE_VIDEO:
+                logger.debug(f"Skipping non-video file {file_path.name} for video filter")
+                return None
+
+        # For "custom" type, allow any file
 
         mime_type, _ = mimetypes.guess_type(file_path)
         if mime_type is None:
@@ -174,7 +279,7 @@ class DifyWorkflowClient:
         response = await self._client.post("/files/upload", data=data, files=files)
         response.raise_for_status()
         result = response.json()
-        logger.debug(f"upload files: {user_id} {file_path.name}")
+        logger.debug(f"upload files: {user_id} {file_path.name} ({filter_type})")
 
         return FilesUploadResponse(**result)
 

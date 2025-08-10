@@ -6,7 +6,7 @@ services:
     ports:
       - "8081:8081"
     volumes:
-      - telegram-bot-api-data:/var/lib/telegram-bot-api
+      - ./volumes/telegram-bot-api-data:/var/lib/telegram-bot-api
     environment:
       - TELEGRAM_API_ID=${TELEGRAM_API_ID}
       - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
@@ -17,14 +17,14 @@ services:
       --dir=/var/lib/telegram-bot-api
       --http-port=8081
       --log=/var/lib/telegram-bot-api/telegram-bot-api.log
-#    networks:
-#      - bot-network
 
-volumes:
-  telegram-bot-api-data:
-    driver: local
-
-#networks:
-#  bot-network:
-#    external: true
-#    name: tg-translation-bot_default
+  nginx:
+    image: nginx:1.29.0-alpine
+    restart: unless-stopped
+    depends_on:
+      - telegram-bot-api
+    volumes:
+      - ./volumes/telegram-bot-api-data:/var/lib/telegram-bot-api
+      - ./nginx:/etc/nginx/conf.d/
+    ports:
+      - "8082:80"

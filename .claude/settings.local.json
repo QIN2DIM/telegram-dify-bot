@@ -9,6 +9,8 @@
       "Bash(python:*)",
       "Bash(find:*)"
     ],
-    "deny": []
+    "deny": [
+      "Bash(rm:*)"
+    ]
   }
 }

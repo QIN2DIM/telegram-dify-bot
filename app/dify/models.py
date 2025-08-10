@@ -39,6 +39,32 @@ FORCED_COMMAND_TYPE = Union[
     str, ForcedCommand, Literal["Any", "CommitMessageGeneration", "AutoTranslation", "Test"]
 ]
 
+ALLOWED_FILE_DOCS = [
+    "TXT",
+    "MD",
+    "MDX",
+    "MARKDOWN",
+    "PDF",
+    "HTML",
+    "XLSX",
+    "XLS",
+    "DOC",
+    "DOCX",
+    "csv",
+    "EML",
+    "MSG",
+    "PPTX",
+    "PPT",
+    "XML",
+    "EPUB",
+]
+
+ALLOWED_FILE_IMAGE = ["JPG", "JPEG", "PNG", "WEBP"]
+
+ALLOWED_FILE_AUDIO = ["MP3", "M4A", "WAV", "AMR", "MPGA"]
+
+ALLOWED_FILE_VIDEO = ["MP4", "MOV", "MPEG", "WEBM"]
+
 
 class WorkflowFileInputBody(BaseModel):
     type: FILE_TYPE

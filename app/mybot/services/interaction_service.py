@@ -15,9 +15,10 @@ from telegram.ext import ContextTypes
 from models import TaskType, Interaction
 from mybot.common import (
     storage_messages_dataset,
-    _download_photos_from_message,
     get_hello_reply,
     get_image_mention_prompt,
+    add_message_to_media_group_cache,
+    download_media_group_files,
 )
 from settings import settings
 
@@ -390,6 +391,9 @@ async def pre_interactivity(
     with suppress(Exception):
         storage_messages_dataset(chat.type, trigger_message)
 
+    # Add message to media group cache for handling grouped messages
+    add_message_to_media_group_cache(trigger_message)
+
     # TODO: 弃用自动翻译功能
     is_auto_mode = False
 
@@ -448,28 +452,38 @@ async def pre_interactivity(
     # 提取引用信息
     quote_info = _extract_quote_info(trigger_message)
 
-    # Download photos
-    photo_paths = None
-    if trigger_message.photo:
-        photo_paths = await _download_photos_from_message(trigger_message, context.bot)
+    # Download all media files (including media group support)
+    media_files = await download_media_group_files(trigger_message, context.bot)
 
-    # 处理 MENTION_WITH_REPLY 模式下的回复消息图片
-    if (
-        task_type == TaskType.MENTION_WITH_REPLY
-        and trigger_message.reply_to_message
-        and trigger_message.reply_to_message.photo
-    ):
-        reply_photo_paths = await _download_photos_from_message(
+    # Maintain backward compatibility with photo_paths
+    photo_paths = media_files.get("photos", []) if media_files else None
+
+    # 处理 MENTION_WITH_REPLY 模式下的回复消息媒体
+    if task_type == TaskType.MENTION_WITH_REPLY and trigger_message.reply_to_message:
+        # Also add reply message to cache in case it's part of a media group
+        add_message_to_media_group_cache(trigger_message.reply_to_message)
+        reply_media_files = await download_media_group_files(
             trigger_message.reply_to_message, context.bot
         )
-        if reply_photo_paths:
-            photo_paths = (photo_paths or []) + reply_photo_paths
+        if reply_media_files:
+            # Merge media files from reply
+            if not media_files:
+                media_files = reply_media_files
+            else:
+                for media_type, paths in reply_media_files.items():
+                    if paths:
+                        media_files[media_type].extend(paths)
+
+            # Update photo_paths for backward compatibility
+            if reply_media_files.get("photos"):
+                photo_paths = (photo_paths or []) + reply_media_files["photos"]
 
     # 创建增强的 Interaction 对象
     return Interaction(
         task_type=task_type,
         from_user_fmt=from_user_fmt,
         photo_paths=photo_paths,
+        media_files=media_files,
         # 添加新的上下文信息
         user_info=user_info,
         entities_info=entities_info,

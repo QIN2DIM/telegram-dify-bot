@@ -8,7 +8,6 @@
 from abc import ABC, abstractmethod
 from typing import TypeVar, Generic, List, Dict, Any, Optional
 
-from loguru import logger
 from pydantic import BaseModel, Field
 
 

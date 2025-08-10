@@ -211,5 +211,6 @@ __marimo__/
 examples/tmp
 app/data
 docker/volumes/
-examples/ff.py
 app/config/binders.yaml
+docker/telegram-bot-api-server/volumes
+examples/f*.py
