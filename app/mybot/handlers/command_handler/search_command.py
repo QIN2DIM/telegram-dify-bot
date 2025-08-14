@@ -14,7 +14,7 @@ from telegram.ext import ContextTypes
 
 from dify.models import ForcedCommand
 from models import Interaction, TaskType
-from mybot.common import add_message_to_media_group_cache, download_media_group_files
+from mybot.common import process_message_media
 from mybot.services import dify_service, response_service
 from mybot.task_manager import non_blocking_handler
 from mybot.common import should_ignore_command_in_group
@@ -64,27 +64,6 @@ async def _reply_emoji_reaction(context: ContextTypes.DEFAULT_TYPE, chat: Chat, 
         logger.debug(f"无法设置消息反应: {reaction_error}")
 
 
-async def _process_media_files(message: Message, context: ContextTypes.DEFAULT_TYPE):
-    """Process and download media files from message"""
-    # Add message to media group cache and download all media files
-    add_message_to_media_group_cache(message)
-    media_files = await download_media_group_files(message, context.bot)
-
-    # Check if any media was downloaded
-    has_media = False
-    if media_files:
-        for media_type, paths in media_files.items():
-            if paths:
-                has_media = True
-                logger.info(f"Downloaded {len(paths)} {media_type} for search")
-                break
-
-    # For backward compatibility
-    photo_paths = media_files.get("photos", []) if media_files else []
-
-    return media_files, has_media, photo_paths
-
-
 async def _reply_help(
     context: ContextTypes.DEFAULT_TYPE, chat: Chat, message: Message, query: str, has_media: bool
 ) -> bool:
@@ -129,7 +108,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     # Process media files
-    media_files, has_media, photo_paths = await _process_media_files(message, context)
+    media_files, has_media, photo_paths = await process_message_media(message, context.bot)
 
     # Show help if no query or media provided
     if await _reply_help(context, chat, message, query, has_media):

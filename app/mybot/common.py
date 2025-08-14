@@ -792,3 +792,40 @@ def get_hello_reply():
 
 def get_image_mention_prompt():
     return random.choice(image_mention_prompts)
+
+
+async def process_message_media(
+    message: Message, bot: Bot
+) -> tuple[Dict[str, List[Path]], bool, List[Path]]:
+    """
+    Process and download media files from a message
+
+    This is a shared utility function used by command handlers that need to process media files.
+
+    Args:
+        message: Telegram message that may contain media
+        bot: Bot instance for downloading files
+
+    Returns:
+        tuple containing:
+        - media_files: Dictionary with media type as key and list of paths as value
+        - has_media: Boolean indicating if any media was downloaded
+        - photo_paths: List of photo paths for backward compatibility
+    """
+    # Add message to media group cache and download all media files
+    add_message_to_media_group_cache(message)
+    media_files = await download_media_group_files(message, bot)
+
+    # Check if any media was downloaded
+    has_media = False
+    if media_files:
+        for media_type, paths in media_files.items():
+            if paths:
+                has_media = True
+                logger.info(f"Downloaded {len(paths)} {media_type} for processing")
+                break
+
+    # For backward compatibility
+    photo_paths = media_files.get("photos", []) if media_files else []
+
+    return media_files, has_media, photo_paths

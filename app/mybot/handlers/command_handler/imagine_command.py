@@ -16,7 +16,7 @@ from dify.models import ForcedCommand
 from models import Interaction, TaskType
 from mybot.services import dify_service, response_service
 from mybot.task_manager import non_blocking_handler
-from mybot.common import should_ignore_command_in_group
+from mybot.common import should_ignore_command_in_group, process_message_media
 
 EMOJI_REACTION = [ReactionTypeEmoji(emoji=telegram.constants.ReactionEmoji.FIRE)]
 
@@ -51,16 +51,16 @@ async def _reply_emoji_reaction(context: ContextTypes.DEFAULT_TYPE, chat: Chat, 
 
 
 async def _reply_help(
-    context: ContextTypes.DEFAULT_TYPE, chat: Chat, message: Message, prompt: str
+    context: ContextTypes.DEFAULT_TYPE, chat: Chat, message: Message, prompt: str, has_media: bool
 ) -> bool | None:
-    # Check if prompt is provided
-    if prompt:
+    # Check if prompt or media is provided
+    if prompt or has_media:
         return False
 
     try:
         await context.bot.send_message(
             chat_id=chat.id,
-            text="请提供图片生成提示词\n\n使用方法:\n• <code>/imagine 你想生成的图片描述</code>\n",
+            text="请提供图片生成提示词或上传参考图片\n\n使用方法:\n• <code>/imagine 你想生成的图片描述</code>\n• <code>/imagine</code> + 发送参考图片\n• <code>/imagine 描述文字</code> + 发送参考图片\n",
             parse_mode=ParseMode.HTML,
             reply_to_message_id=message.message_id,
         )
@@ -90,9 +90,16 @@ async def imagine_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         logger.warning("imagine 命令：无法找到有效的消息或聊天信息进行回复")
         return
 
-    # Check if prompt is provided
-    if await _reply_help(context, chat, message, prompt):
+    # Process media files
+    media_files, has_media, photo_paths = await process_message_media(message, context.bot)
+
+    # Check if prompt or media is provided
+    if await _reply_help(context, chat, message, prompt, has_media):
         return
+
+    # Use default prompt for media-only generation
+    if not prompt and has_media:
+        prompt = "请参考附件信息"
 
     # Add reaction to indicate processing
     await _reply_emoji_reaction(context, chat, message)
@@ -101,8 +108,8 @@ async def imagine_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     interaction = Interaction(
         task_type=TaskType.MENTION,
         from_user_fmt=str(message.from_user.id if message.from_user else "unknown"),
-        photo_paths=[],
-        media_files={},
+        photo_paths=photo_paths,
+        media_files=media_files,
     )
 
     # Get bot username
@@ -110,15 +117,17 @@ async def imagine_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     # Invoke Dify service with streaming
     try:
-        logger.info(f"Starting call to Dify image generation service: {prompt[:100]}...")
+        logger.info(
+            f"Starting call to Dify image generation service: {prompt[:100]}... (媒体文件: {has_media})"
+        )
 
         forced_command = ForcedCommand.IMAGINE
         streaming_generator = dify_service.invoke_model_streaming(
             bot_username=bot_username,
             message_context=prompt,
             from_user=interaction.from_user_fmt,
-            photo_paths=[],
-            media_files={},
+            photo_paths=photo_paths,
+            media_files=media_files,
             forced_command=forced_command,
         )
 
