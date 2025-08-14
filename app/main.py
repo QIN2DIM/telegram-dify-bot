@@ -92,6 +92,16 @@ def main() -> None:
     application.post_init = setup_bot_commands
 
     # on different commands - answer in Telegram
+    # Important: In group chats, bots receive ALL commands by default, even those
+    # meant for other bots. Python-telegram-bot's CommandHandler will respond to:
+    # - /command (in groups, ALL bots receive this)
+    # - /command@botname (only the specified bot processes this)
+    #
+    # To prevent responding to commands meant for other bots in groups,
+    # each command handler now includes a check using should_ignore_command_in_group()
+    # This ensures that in groups, only commands with @botname are processed
+
+    # Register handlers
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("zlib", zlib_command))

@@ -25,6 +25,29 @@ _media_group_cache: Dict[str, List[Message]] = defaultdict(list)
 _cache_cleanup_time = time.time()
 
 
+def should_ignore_command_in_group(update, context) -> bool:
+    """
+    Check if a command should be ignored in group chats.
+    Returns True if the command should be ignored (not processed).
+
+    In groups, only respond to commands with bot mention (/command@botname).
+    In private chats, respond to all commands.
+    """
+    # Only check for group chats
+    if not update.message or update.message.chat.type == "private":
+        return False
+
+    # In groups, check if command contains bot mention
+    bot_username = context.bot.username
+    if bot_username and update.message.text:
+        # If command doesn't contain @botname, ignore it
+        command_part = update.message.text.split()[0] if update.message.text else ""
+        if command_part.startswith("/") and f"@{bot_username}" not in command_part:
+            return True
+
+    return False
+
+
 def storage_messages_dataset(chat_type: str, effective_message: Message) -> None:
     """仅用于开发测试，程序运行稳定后移除"""
 

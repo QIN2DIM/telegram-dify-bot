@@ -115,11 +115,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         message_text = (message.text or message.caption or "").strip()
 
         if message_text.startswith("/"):
-            command_name, args = _extract_command_from_message(message_text, context.bot.username)
+            # In groups, only handle commands that mention this bot
+            # In private chats, handle all commands
+            bot_username = context.bot.username
+            is_private_chat = message.chat.type == "private"
+            is_for_this_bot = f"@{bot_username}" in message_text if bot_username else False
 
-            # Try to handle as media command
-            if await _handle_media_command(update, context, command_name, args):
-                return
+            if is_private_chat or is_for_this_bot:
+                command_name, args = _extract_command_from_message(message_text, bot_username)
+
+                # Try to handle as media command
+                if await _handle_media_command(update, context, command_name, args):
+                    return
 
     # 1. Determine task and perform pre-interaction
     interaction = await interaction_service.pre_interactivity(update, context)

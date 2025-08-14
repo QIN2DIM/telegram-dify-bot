@@ -17,6 +17,8 @@ from models import Interaction, TaskType
 from mybot.common import add_message_to_media_group_cache, download_media_group_files
 from mybot.services import dify_service, response_service
 from mybot.task_manager import non_blocking_handler
+from mybot.common import should_ignore_command_in_group
+
 
 EMOJI_REACTION = [ReactionTypeEmoji(emoji="🤔")]
 
@@ -109,6 +111,11 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # Skip inline queries
     if update.inline_query:
         logger.info(f"search 命令收到内联查询: {update.inline_query.query}")
+        return
+
+    # In group chats, only respond to commands with bot mention
+    if should_ignore_command_in_group(update, context):
+        logger.debug("Ignoring /search command in group without bot mention")
         return
 
     # Extract search query

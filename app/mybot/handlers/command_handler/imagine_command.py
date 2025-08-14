@@ -16,6 +16,7 @@ from dify.models import ForcedCommand
 from models import Interaction, TaskType
 from mybot.services import dify_service, response_service
 from mybot.task_manager import non_blocking_handler
+from mybot.common import should_ignore_command_in_group
 
 EMOJI_REACTION = [ReactionTypeEmoji(emoji=telegram.constants.ReactionEmoji.FIRE)]
 
@@ -73,6 +74,11 @@ async def _reply_help(
 async def imagine_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Generate images using Dify workflow based on user prompts"""
     if update.inline_query:
+        return
+
+    # In group chats, only respond to commands with bot mention
+    if should_ignore_command_in_group(update, context):
+        logger.debug("Ignoring /imagine command in group without bot mention")
         return
 
     # Extract prompt from arguments

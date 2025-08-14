@@ -12,6 +12,7 @@ from .start_command import start_command
 from .zlib_command import zlib_command
 from .imagine_command import imagine_command
 
+
 __all__ = [
     "start_command",
     "help_command",
