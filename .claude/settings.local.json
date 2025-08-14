@@ -9,7 +9,8 @@
       "Bash(python:*)",
       "Bash(find:*)",
       "Bash(docker logs:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "WebSearch"
     ],
     "deny": [
       "Bash(rm:*)",
@@ -18,6 +19,7 @@
       "Bash(grep:*token*)",
       "Bash(grep:*key*)",
       "Bash(grep:*password*)"
-    ]
+    ],
+    "defaultMode": "acceptEdits"
   }
 }

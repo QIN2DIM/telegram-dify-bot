@@ -30,6 +30,7 @@ class ForcedCommand(StrEnum):
     COMMIT_MESSAGE_GENERATION = "CommitMessageGeneration"
     AUTO_TRANSLATION = "AutoTranslation"
     GOOGLE_GROUNDING = "GoogleGrounding"
+    IMAGINE = "Imagine"
     TEST = "Test"
 
 
@@ -111,6 +112,7 @@ class AnswerType(str, Enum):
     DATA_SCIENCE = "科学计算"
     URL_CONTEXT = "外链上下文问答"
     GEOLOCATION_IDENTIFICATION = "地理位置识别"
+    IMAGE_GENERATION = "Imagine"
     GENERAL_QA = "通用问答与指令"
 
 
@@ -222,6 +224,15 @@ class WorkflowFinishedData(BaseModel):
 
 
 # --- Top-Level Event Models ---
+
+
+class WorkflowEvent(StrEnum):
+    WORKFLOW_STARTED = "workflow_started"
+    NODE_STARTED = "node_started"
+    TEXT_CHUNK = "text_chunk"
+    NODE_FINISHED = "node_finished"
+    AGENT_LOG = "agent_log"
+    WORKFLOW_FINISHED = "workflow_finished"
 
 
 class BaseWorkflowEvent(BaseModel):

@@ -22,6 +22,7 @@ from mybot.handlers.command_handler import (
     zlib_command,
     search_command,
     parse_command,
+    imagine_command,
 )
 from mybot.handlers.message_handler import handle_message
 from plugins import zlib_access_points
@@ -50,6 +51,7 @@ async def setup_bot_commands(application):
         BotCommand("zlib", "获取 Z-Library 搜索链接"),
         BotCommand("search", "Grounding with Google Search"),
         BotCommand("parse", "解析自媒体链接并自动下载媒体资源"),
+        BotCommand("imagine", "使用 AI 生成图片"),
     ]
 
     try:
@@ -90,11 +92,22 @@ def main() -> None:
     application.post_init = setup_bot_commands
 
     # on different commands - answer in Telegram
+    # Important: In group chats, bots receive ALL commands by default, even those
+    # meant for other bots. Python-telegram-bot's CommandHandler will respond to:
+    # - /command (in groups, ALL bots receive this)
+    # - /command@botname (only the specified bot processes this)
+    #
+    # To prevent responding to commands meant for other bots in groups,
+    # each command handler now includes a check using should_ignore_command_in_group()
+    # This ensures that in groups, only commands with @botname are processed
+
+    # Register handlers
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("zlib", zlib_command))
     application.add_handler(CommandHandler("search", search_command))
     application.add_handler(CommandHandler("parse", parse_command))
+    application.add_handler(CommandHandler("imagine", imagine_command))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))

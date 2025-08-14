@@ -17,6 +17,7 @@ from mybot.task_manager import non_blocking_handler
 from mybot.services.telegram_media_service import TelegramMediaService
 from mybot.services.message_formatter import MessageFormatter
 from plugins.social_parser import parser_registry
+from mybot.common import should_ignore_command_in_group
 
 
 async def _send_or_edit_message(
@@ -210,6 +211,12 @@ async def _parse_and_download(
 @non_blocking_handler("parse_command")
 async def parse_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Parse social media links and automatically download media resources"""
+
+    # In group chats, only respond to commands with bot mention
+    if should_ignore_command_in_group(update, context):
+        logger.debug("Ignoring /parse command in group without bot mention")
+        return
+
     link = _extract_link_from_args(context.args)
     message = update.effective_message
     chat = update.effective_chat

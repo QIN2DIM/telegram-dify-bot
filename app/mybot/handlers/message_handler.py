@@ -115,11 +115,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         message_text = (message.text or message.caption or "").strip()
 
         if message_text.startswith("/"):
-            command_name, args = _extract_command_from_message(message_text, context.bot.username)
+            # In groups, only handle commands that mention this bot
+            # In private chats, handle all commands
+            bot_username = context.bot.username
+            is_private_chat = message.chat.type == "private"
+            is_for_this_bot = f"@{bot_username}" in message_text if bot_username else False
 
-            # Try to handle as media command
-            if await _handle_media_command(update, context, command_name, args):
-                return
+            if is_private_chat or is_for_this_bot:
+                command_name, args = _extract_command_from_message(message_text, bot_username)
+
+                # Try to handle as media command
+                if await _handle_media_command(update, context, command_name, args):
+                    return
 
     # 1. Determine task and perform pre-interaction
     interaction = await interaction_service.pre_interactivity(update, context)
@@ -145,9 +152,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 photo_paths=interaction.photo_paths,
                 media_files=interaction.media_files,
             )
-            await response_service.send_streaming_response(
-                update, context, interaction, streaming_generator
-            )
+            await response_service.send_streaming_response(update, context, streaming_generator)
         except Exception as e:
             logger.error(f"Streaming invocation failed: {e}")
     else:  # Blocking mode
@@ -160,8 +165,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 media_files=interaction.media_files,
             )
             if result_text:
-                await response_service.send_standard_response(
-                    update, context, interaction, result_text
-                )
+                await response_service.send_standard_response(update, context, result_text)
         except Exception as e:
             logger.error(f"Blocking invocation failed: {e}")

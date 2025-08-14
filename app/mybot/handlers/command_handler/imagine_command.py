@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-@Time    : 2025/7/21 21:07
+@Time    : 2025/8/13 20:42
 @Author  : QIN2DIM
 @GitHub  : https://github.com/QIN2DIM
-@Desc    : 搜索命令处理器，使用 Dify 大模型服务提供智能搜索功能
+@Desc    : Imagine command handler for generating images using Dify workflow
 """
-
+import telegram
 from loguru import logger
 from telegram import ReactionTypeEmoji, Chat, Message
 from telegram import Update
@@ -14,28 +14,15 @@ from telegram.ext import ContextTypes
 
 from dify.models import ForcedCommand
 from models import Interaction, TaskType
-from mybot.common import process_message_media
 from mybot.services import dify_service, response_service
 from mybot.task_manager import non_blocking_handler
-from mybot.common import should_ignore_command_in_group
+from mybot.common import should_ignore_command_in_group, process_message_media
 
-
-EMOJI_REACTION = [ReactionTypeEmoji(emoji="🤔")]
-
-
-def _extract_search_query(args: list) -> str:
-    """从用户输入中提取真正的检索词，过滤掉 mention entity"""
-    if not args:
-        return ""
-
-    # 过滤掉 mention entity（以 @ 开头的词）
-    filtered_args = [arg for arg in args if not arg.startswith("@")]
-
-    return " ".join(filtered_args).strip()
+EMOJI_REACTION = [ReactionTypeEmoji(emoji=telegram.constants.ReactionEmoji.FIRE)]
 
 
 async def _match_context(update: Update):
-    """Match and extract message and chat context from update"""
+    # Get message and chat info
     message = None
     chat = None
 
@@ -55,7 +42,6 @@ async def _match_context(update: Update):
 
 
 async def _reply_emoji_reaction(context: ContextTypes.DEFAULT_TYPE, chat: Chat, message: Message):
-    """Send emoji reaction to indicate processing"""
     try:
         await context.bot.set_message_reaction(
             chat_id=chat.id, message_id=message.message_id, reaction=EMOJI_REACTION
@@ -65,58 +51,55 @@ async def _reply_emoji_reaction(context: ContextTypes.DEFAULT_TYPE, chat: Chat, 
 
 
 async def _reply_help(
-    context: ContextTypes.DEFAULT_TYPE, chat: Chat, message: Message, query: str, has_media: bool
-) -> bool:
-    """Reply with help message if no query or media provided"""
-    if query or has_media:
+    context: ContextTypes.DEFAULT_TYPE, chat: Chat, message: Message, prompt: str, has_media: bool
+) -> bool | None:
+    # Check if prompt or media is provided
+    if prompt or has_media:
         return False
 
     try:
         await context.bot.send_message(
             chat_id=chat.id,
-            text="请提供搜索关键词或上传文件\n\n使用方法: \n• <code>/search 你的搜索内容</code>\n• <code>/search</code> + 发送图片/文档/音频/视频\n• <code>/search 描述文字</code> + 发送文件",
+            text="请提供图片生成提示词或上传参考图片\n\n使用方法:\n• <code>/imagine 你想生成的图片描述</code>\n• <code>/imagine</code> + 发送参考图片\n• <code>/imagine 描述文字</code> + 发送参考图片\n",
             parse_mode=ParseMode.HTML,
             reply_to_message_id=message.message_id,
         )
     except Exception as send_error:
-        logger.error(f"发送搜索提示失败: {send_error}")
+        logger.error(f"发送提示失败: {send_error}")
 
     return True
 
 
-@non_blocking_handler("search_command")
-async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """智能搜索命令，使用 Dify 大模型服务提供搜索结果"""
-    # Skip inline queries
+@non_blocking_handler("imagine_command")
+async def imagine_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Generate images using Dify workflow based on user prompts"""
     if update.inline_query:
-        logger.info(f"search 命令收到内联查询: {update.inline_query.query}")
         return
 
     # In group chats, only respond to commands with bot mention
     if should_ignore_command_in_group(update, context):
-        logger.debug("Ignoring /search command in group without bot mention")
+        logger.debug("Ignoring /imagine command in group without bot mention")
         return
 
-    # Extract search query
-    query = _extract_search_query(context.args)
-    logger.debug(f"Invoke Search: {query}")
+    # Extract prompt from arguments
+    prompt = " ".join(context.args) if context.args else ""
+    logger.debug(f"Invoke Imagine: {prompt}")
 
-    # Match message and chat context
     message, chat = await _match_context(update)
     if not message or not chat:
-        logger.warning("search 命令：无法找到有效的消息或聊天信息进行回复")
+        logger.warning("imagine 命令：无法找到有效的消息或聊天信息进行回复")
         return
 
     # Process media files
     media_files, has_media, photo_paths = await process_message_media(message, context.bot)
 
-    # Show help if no query or media provided
-    if await _reply_help(context, chat, message, query, has_media):
+    # Check if prompt or media is provided
+    if await _reply_help(context, chat, message, prompt, has_media):
         return
 
-    # Use default prompt for media-only searches
-    if not query and has_media:
-        query = "请分析这个文件"
+    # Use default prompt for media-only generation
+    if not prompt and has_media:
+        prompt = "请参考附件信息"
 
     # Add reaction to indicate processing
     await _reply_emoji_reaction(context, chat, message)
@@ -134,26 +117,31 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # Invoke Dify service with streaming
     try:
-        logger.info(f"开始调用 Dify 搜索服务 (流式): {query[:100]}... (媒体文件: {has_media})")
+        logger.info(
+            f"Starting call to Dify image generation service: {prompt[:100]}... (媒体文件: {has_media})"
+        )
 
+        forced_command = ForcedCommand.IMAGINE
         streaming_generator = dify_service.invoke_model_streaming(
             bot_username=bot_username,
-            message_context=query,
+            message_context=prompt,
             from_user=interaction.from_user_fmt,
             photo_paths=photo_paths,
             media_files=media_files,
-            forced_command=ForcedCommand.GOOGLE_GROUNDING,
+            forced_command=forced_command,
         )
 
-        await response_service.send_streaming_response(update, context, streaming_generator)
+        await response_service.send_streaming_response(
+            update, context, streaming_generator, forced_command=forced_command
+        )
 
-    except Exception as search_error:
-        logger.error(f"调用 Dify 搜索服务失败: {search_error}")
+    except Exception as imagine_error:
+        logger.error(f"Call to Dify image generation service failed: {imagine_error}")
 
         # Send error message
         await context.bot.send_message(
             chat_id=chat.id,
-            text="❌ 搜索过程中发生错误，请稍后再试",
-            parse_mode=ParseMode.HTML,
+            text="❌ 图片生成过程中发生错误，请稍后再试",
+            parse_mode='HTML',
             reply_to_message_id=message.message_id,
         )

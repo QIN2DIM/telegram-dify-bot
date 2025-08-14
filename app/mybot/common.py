@@ -25,6 +25,29 @@ _media_group_cache: Dict[str, List[Message]] = defaultdict(list)
 _cache_cleanup_time = time.time()
 
 
+def should_ignore_command_in_group(update, context) -> bool:
+    """
+    Check if a command should be ignored in group chats.
+    Returns True if the command should be ignored (not processed).
+
+    In groups, only respond to commands with bot mention (/command@botname).
+    In private chats, respond to all commands.
+    """
+    # Only check for group chats
+    if not update.message or update.message.chat.type == "private":
+        return False
+
+    # In groups, check if command contains bot mention
+    bot_username = context.bot.username
+    if bot_username and update.message.text:
+        # If command doesn't contain @botname, ignore it
+        command_part = update.message.text.split()[0] if update.message.text else ""
+        if command_part.startswith("/") and f"@{bot_username}" not in command_part:
+            return True
+
+    return False
+
+
 def storage_messages_dataset(chat_type: str, effective_message: Message) -> None:
     """仅用于开发测试，程序运行稳定后移除"""
 
@@ -769,3 +792,40 @@ def get_hello_reply():
 
 def get_image_mention_prompt():
     return random.choice(image_mention_prompts)
+
+
+async def process_message_media(
+    message: Message, bot: Bot
+) -> tuple[Dict[str, List[Path]], bool, List[Path]]:
+    """
+    Process and download media files from a message
+
+    This is a shared utility function used by command handlers that need to process media files.
+
+    Args:
+        message: Telegram message that may contain media
+        bot: Bot instance for downloading files
+
+    Returns:
+        tuple containing:
+        - media_files: Dictionary with media type as key and list of paths as value
+        - has_media: Boolean indicating if any media was downloaded
+        - photo_paths: List of photo paths for backward compatibility
+    """
+    # Add message to media group cache and download all media files
+    add_message_to_media_group_cache(message)
+    media_files = await download_media_group_files(message, bot)
+
+    # Check if any media was downloaded
+    has_media = False
+    if media_files:
+        for media_type, paths in media_files.items():
+            if paths:
+                has_media = True
+                logger.info(f"Downloaded {len(paths)} {media_type} for processing")
+                break
+
+    # For backward compatibility
+    photo_paths = media_files.get("photos", []) if media_files else []
+
+    return media_files, has_media, photo_paths

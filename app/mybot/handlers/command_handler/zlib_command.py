@@ -13,6 +13,8 @@ from telegram.ext import ContextTypes
 
 from mybot.task_manager import non_blocking_handler
 from plugins.zlib_access_points import get_zlib_search_url, get_zlib_search_url_with_info
+from mybot.common import should_ignore_command_in_group
+
 
 publication_tpl = """
 <b>社交网络</b>
@@ -38,6 +40,11 @@ def _extract_search_query(args: list) -> str:
 @non_blocking_handler("zlib_command")
 async def zlib_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """获取 zlib 访问链接"""
+
+    # In group chats, only respond to commands with bot mention
+    if should_ignore_command_in_group(update, context):
+        logger.debug("Ignoring /zlib command in group without bot mention")
+        return
 
     # 获取用户输入的查询参数，过滤掉 mention entity
     query = _extract_search_query(context.args)
