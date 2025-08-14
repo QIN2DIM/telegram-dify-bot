@@ -79,14 +79,23 @@ async def _send_single_photo_with_caption(
     delete_message_id: int,
     photo: bytes,
 ):
-    await context.bot.send_photo(
-        chat_id=chat_id,
-        photo=photo,
-        caption=caption,
-        reply_to_message_id=reply_to_message_id,
-        parse_mode=parse_mode,
-    )
-    await context.bot.delete_message(chat_id=chat_id, message_id=delete_message_id)
+    try:
+        await context.bot.send_photo(
+            chat_id=chat_id,
+            photo=photo,
+            caption=caption,
+            reply_to_message_id=reply_to_message_id,
+            parse_mode=parse_mode,
+        )
+        await context.bot.delete_message(chat_id=chat_id, message_id=delete_message_id)
+    except Exception as e:
+        if "Message caption is too long" in str(e):
+            logger.warning(f"Caption too long, sending photo without caption: {e}")
+            await context.bot.send_photo(
+                chat_id=chat_id, photo=photo, reply_to_message_id=reply_to_message_id
+            )
+        else:
+            raise
 
 
 async def _send_photo_group_with_caption(
@@ -107,11 +116,24 @@ async def _send_photo_group_with_caption(
         else:
             media_group.append(InputMediaPhoto(media=photo))
 
-    await context.bot.send_media_group(
-        chat_id=chat_id, media=media_group, reply_to_message_id=reply_to_message_id
-    )
-
-    await context.bot.delete_message(chat_id=chat_id, message_id=delete_message_id)
+    try:
+        await context.bot.send_media_group(
+            chat_id=chat_id, media=media_group, reply_to_message_id=reply_to_message_id
+        )
+        await context.bot.delete_message(chat_id=chat_id, message_id=delete_message_id)
+    except Exception as e:
+        if "Message caption is too long" in str(e):
+            logger.warning(f"Caption too long, sending media group without caption: {e}")
+            # Rebuild media group without caption
+            media_group = []
+            for file_path in downloaded_files:
+                photo = Path(file_path).read_bytes()
+                media_group.append(InputMediaPhoto(media=photo))
+            await context.bot.send_media_group(
+                chat_id=chat_id, media=media_group, reply_to_message_id=reply_to_message_id
+            )
+        else:
+            raise
 
 
 async def _send_imagine_result(
@@ -179,5 +201,13 @@ async def _send_imagine_result(
             logger.info(f"Successfully sent {len(downloaded_files)} generated images")
             return
         except Exception as e:
-            logger.error(f"Failed to send with parse_mode={parse_mode}: {e}")
-            continue
+            if "Message caption is too long" not in str(e):
+                logger.exception(f"Failed to send with parse_mode={parse_mode}: {e}")
+                continue
+            else:
+                # For caption too long error, it's already handled in the sub-functions
+                # Just log and exit successfully
+                logger.info(
+                    f"Successfully sent {len(downloaded_files)} generated images (without caption due to length)"
+                )
+                return
