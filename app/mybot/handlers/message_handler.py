@@ -145,9 +145,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 photo_paths=interaction.photo_paths,
                 media_files=interaction.media_files,
             )
-            await response_service.send_streaming_response(
-                update, context, interaction, streaming_generator
-            )
+            await response_service.send_streaming_response(update, context, streaming_generator)
         except Exception as e:
             logger.error(f"Streaming invocation failed: {e}")
     else:  # Blocking mode
@@ -160,8 +158,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 media_files=interaction.media_files,
             )
             if result_text:
-                await response_service.send_standard_response(
-                    update, context, interaction, result_text
-                )
+                await response_service.send_standard_response(update, context, result_text)
         except Exception as e:
             logger.error(f"Blocking invocation failed: {e}")
