@@ -90,8 +90,33 @@ async def imagine_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         logger.warning("imagine 命令：无法找到有效的消息或聊天信息进行回复")
         return
 
-    # Process media files
+    # Process media files from current message
     media_files, has_media, photo_paths = await process_message_media(message, context.bot)
+
+    # Also check for media in replied message (if user replied to a message with media)
+    if message.reply_to_message:
+        from mybot.common import add_message_to_media_group_cache, download_media_group_files
+
+        # Add reply message to cache for media group handling
+        add_message_to_media_group_cache(message.reply_to_message)
+        reply_media_files = await download_media_group_files(message.reply_to_message, context.bot)
+
+        if reply_media_files:
+            # Merge media files from reply
+            if not media_files:
+                media_files = reply_media_files
+                has_media = True
+            else:
+                for media_type, paths in reply_media_files.items():
+                    if paths:
+                        if media_type not in media_files:
+                            media_files[media_type] = []
+                        media_files[media_type].extend(paths)
+                        has_media = True
+
+            # Update photo_paths for backward compatibility
+            if reply_media_files.get("photos"):
+                photo_paths = (photo_paths or []) + reply_media_files["photos"]
 
     # Check if prompt or media is provided
     if await _reply_help(context, chat, message, prompt, has_media):
