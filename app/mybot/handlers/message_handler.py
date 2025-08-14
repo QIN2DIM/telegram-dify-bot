@@ -13,6 +13,7 @@ import asyncio
 from mybot.task_manager import non_blocking_handler
 from mybot.services import interaction_service, context_service, dify_service, response_service
 from mybot.handlers.command_handler.search_command import search_command
+from mybot.handlers.command_handler.imagine_command import imagine_command
 from mybot.common import add_message_to_media_group_cache
 from settings import settings
 
@@ -60,6 +61,11 @@ async def _handle_media_command(
         context.args = args
         logger.debug(f"Detected /{command_name} command in message_handler with args: {args}")
         await search_command(update, context)
+        return True
+    elif command_name == "imagine":
+        context.args = args
+        logger.debug(f"Detected /{command_name} command in message_handler with args: {args}")
+        await imagine_command(update, context)
         return True
 
     # 未来可以在这里添加其他支持媒体的命令
