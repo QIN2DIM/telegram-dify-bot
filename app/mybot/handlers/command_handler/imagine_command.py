@@ -84,6 +84,11 @@ async def _collect_media_group_files(message: Message, bot) -> tuple[dict, bool,
     where each photo is a separate message with the same media_group_id.
     We need to wait for all messages to arrive before processing.
 
+    Smart wait logic:
+    - If message is part of a media group, check if other messages are already cached
+    - If cache already has multiple messages, skip waiting (message_handler already waited)
+    - If cache only has this message, wait for others to arrive
+
     Args:
         message: The trigger message (with the command)
         bot: Bot instance
@@ -91,29 +96,53 @@ async def _collect_media_group_files(message: Message, bot) -> tuple[dict, bool,
     Returns:
         Tuple of (media_files dict, has_media bool, photo_paths list)
     """
+    from mybot.common import get_media_group_messages
+
     # Add current message to cache first
     add_message_to_media_group_cache(message)
 
-    # If this message is part of a media group, wait for other messages to arrive
+    # If this message is part of a media group, check if we need to wait
     if message.media_group_id:
-        # Wait for other messages in the group to be received and cached
-        # This delay allows MessageHandler to process and cache the other photos
-        await asyncio.sleep(0.8)
+        # Check current cache state
+        cached_messages = get_media_group_messages(message)
+        initial_count = len(cached_messages)
 
-        logger.debug(
-            f"Processing media group {message.media_group_id} for /imagine command"
+        # If only this message is in cache, we need to wait for others
+        # This happens when imagine_command is called directly from CommandHandler
+        if initial_count <= 1:
+            logger.debug(
+                f"Media group {message.media_group_id}: only {initial_count} message(s) in cache, "
+                "waiting for more..."
+            )
+            # Wait for other messages to be received and cached
+            await asyncio.sleep(0.8)
+            # Re-fetch after waiting
+            cached_messages = get_media_group_messages(message)
+
+        logger.info(
+            f"Processing media group {message.media_group_id} with {len(cached_messages)} messages"
         )
+        for idx, msg in enumerate(cached_messages):
+            logger.debug(
+                f"  Message {idx + 1}: id={msg.message_id}, "
+                f"has_photo={bool(msg.photo)}, has_caption={bool(msg.caption)}"
+            )
 
     # Now download all media from the group (or single message)
     media_files = await download_media_group_files(message, bot)
 
-    # Check if any media was downloaded
+    # Check if any media was downloaded and log details
     has_media = False
+    total_files = 0
     if media_files:
         for media_type, paths in media_files.items():
             if paths:
                 has_media = True
+                total_files += len(paths)
                 logger.info(f"Downloaded {len(paths)} {media_type} for /imagine processing")
+
+    if not has_media:
+        logger.warning(f"No media files downloaded for message {message.message_id}")
 
     # For backward compatibility
     photo_paths = media_files.get("photos", []) if media_files else []
